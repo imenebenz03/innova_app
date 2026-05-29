@@ -25,7 +25,21 @@ app.config["PERMANENT_SESSION_LIFETIME"] = 3600  # 1 hour
 @app.after_request
 def add_cors(response):
     origin = request.headers.get("Origin", "")
-    allowed_origins = ["http://localhost:5173", "http://127.0.0.1:5173", "exp://", "http://10.230.8.208:8081", "http://10.230.8.208:19000", "http://10.230.8.208:19001", "http://192.168.137.1:8081", "http://192.168.137.1:19000", "http://192.168.137.1:19001"]
+    allowed_origins = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+
+    "https://innova-app-git-main-imenebenz-s-projects1.vercel.app",
+    "https://innova-ndxsykp25-imenebenz-s-projects1.vercel.app",
+
+    "exp://",
+    "http://10.230.8.208:8081",
+    "http://10.230.8.208:19000",
+    "http://10.230.8.208:19001",
+    "http://192.168.137.1:8081",
+    "http://192.168.137.1:19000",
+    "http://192.168.137.1:19001",
+]
     if origin in allowed_origins or origin.startswith("http://10.230") or origin.startswith("http://192.168") or origin.startswith("exp://"):
         response.headers["Access-Control-Allow-Origin"] = origin if origin.startswith("http") else "*"
     else:
