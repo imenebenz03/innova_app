@@ -24,7 +24,7 @@ app.config["PERMANENT_SESSION_LIFETIME"] = 3600  # 1 hour
 
 @app.after_request
 def add_cors(response):
-    origin = request.headers.get("Origin")
+    origin = request.headers.get("Origin", "")
 
     allowed_origins = [
         "http://localhost:5173",
@@ -37,7 +37,7 @@ def add_cors(response):
         response.headers["Access-Control-Allow-Origin"] = origin
         response.headers["Access-Control-Allow-Credentials"] = "true"
 
-    response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, Cookie"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type, Cookie"
     response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
     return response
 
