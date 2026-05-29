@@ -1,0 +1,32 @@
+{
+  "expo": {
+    "name": "INNOVA",
+    "slug": "innova-innovim",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "dz.innovim.innova",
+      "buildNumber": "1"
+    },
+    "android": {
+      "package": "dz.innovim.innova",
+      "versionCode": 1,
+      "permissions": [
+        "NOTIFICATIONS",
+        "RECEIVE_BOOT_COMPLETED",
+        "VIBRATE"
+      ]
+    },
+    "plugins": [
+      [
+        "expo-notifications",
+        {
+          "color": "#C41E1E"
+        }
+      ]
+    ],
+    "scheme": "innova"
+  }
+}
