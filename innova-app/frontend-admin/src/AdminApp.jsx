@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 
-const API = '/api'
+const API = 'https://innova-app.onrender.com/api'
 async function api(method, path, body) {
   const opts = { method, headers: { 'Content-Type': 'application/json' }, credentials: 'include' }
   if (body) opts.body = JSON.stringify(body)
