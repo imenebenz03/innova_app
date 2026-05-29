@@ -31,6 +31,7 @@ def add_cors(response):
         "http://127.0.0.1:5173",
         "https://innova-app-git-main-imenebenz-s-projects1.vercel.app",
         "https://innova-ndxsykp25-imenebenz-s-projects1.vercel.app",
+        "https://innova-7s02d4o5c-imenebenz-s-projects1.vercel.app",    
     ]
 
     if origin in allowed_origins:
