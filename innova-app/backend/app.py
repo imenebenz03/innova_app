@@ -34,7 +34,7 @@ def add_cors(response):
         "https://innova-7s02d4o5c-imenebenz-s-projects1.vercel.app",    
     ]
 
-    if origin in allowed_origins:
+    if origin == "https://innova-app-eta.vercel.app":
         response.headers["Access-Control-Allow-Origin"] = origin
         response.headers["Access-Control-Allow-Credentials"] = "true"
 
