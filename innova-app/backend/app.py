@@ -24,29 +24,21 @@ app.config["PERMANENT_SESSION_LIFETIME"] = 3600  # 1 hour
 
 @app.after_request
 def add_cors(response):
-    origin = request.headers.get("Origin", "")
+    origin = request.headers.get("Origin")
+
     allowed_origins = [
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "https://innova-app-git-main-imenebenz-s-projects1.vercel.app",
+        "https://innova-ndxsykp25-imenebenz-s-projects1.vercel.app",
+    ]
 
-    "https://innova-app-git-main-imenebenz-s-projects1.vercel.app",
-    "https://innova-ndxsykp25-imenebenz-s-projects1.vercel.app",
+    if origin in allowed_origins:
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Access-Control-Allow-Credentials"] = "true"
 
-    "exp://",
-    "http://10.230.8.208:8081",
-    "http://10.230.8.208:19000",
-    "http://10.230.8.208:19001",
-    "http://192.168.137.1:8081",
-    "http://192.168.137.1:19000",
-    "http://192.168.137.1:19001",
-]
-    if origin in allowed_origins or origin.startswith("http://10.230") or origin.startswith("http://192.168") or origin.startswith("exp://"):
-        response.headers["Access-Control-Allow-Origin"] = origin if origin.startswith("http") else "*"
-    else:
-        response.headers["Access-Control-Allow-Origin"] = "*"
     response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, Cookie"
     response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
-    response.headers["Access-Control-Allow-Credentials"] = "true"
     return response
 
 @app.route("/api/<path:path>", methods=["OPTIONS"])
