@@ -325,6 +325,7 @@ def init_db():
         );
     """)
 
+    conn.commit()
     ResidenceDB.seed_default()
 
     count = c.execute("SELECT COUNT(*) FROM residents").fetchone()[0]
