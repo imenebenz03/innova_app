@@ -16,9 +16,9 @@ from database import (
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("INNOVA_SECRET_KEY", secrets.token_hex(32))
-app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+app.config["SESSION_COOKIE_SAMESITE"] = "None"
 app.config["SESSION_COOKIE_HTTPONLY"] = True
-app.config["SESSION_COOKIE_SECURE"] = os.environ.get("INNOVA_SECURE_COOKIES", "false").lower() == "true"
+app.config["SESSION_COOKIE_SECURE"] = True
 app.config["PERMANENT_SESSION_LIFETIME"] = 3600  # 1 hour
 
 
