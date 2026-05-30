@@ -328,8 +328,10 @@ def init_db():
     conn.commit()
     ResidenceDB.seed_default()
 
-    count = c.execute("SELECT COUNT(*) FROM residents").fetchone()[0]
-    if count == 0:
+    resident_count = c.execute("SELECT COUNT(*) FROM residents WHERE role='resident'").fetchone()[0]
+    if resident_count == 0:
+        c.execute("TRUNCATE TABLE device_tokens, notifications, requetes, alertes_vues, alertes, messages, paiements, charges, residents RESTART IDENTITY CASCADE")
+        conn.commit()
         _seed_demo_data(c)
 
     conn.commit()
