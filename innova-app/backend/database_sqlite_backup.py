@@ -1,94 +1,24 @@
 """
 INNOVA — Résidence INNOVIM (Algérie)
-Couche base de données PostgreSQL
+Couche base de données SQLite
 """
 
-import os
+import sqlite3
 import hashlib
 import hmac
 import secrets
-import psycopg2
-from psycopg2 import IntegrityError
-from psycopg2.extras import DictCursor
+from pathlib import Path
 from datetime import datetime
 
-DATABASE_URL = os.environ.get("DATABASE_URL")
-
-
-def _convert_sql(sql: str) -> str:
-    """Convert old SQLite-style SQL to PostgreSQL SQL."""
-    sql = sql.replace("INTEGER PRIMARY KEY AUTOINCREMENT", "SERIAL PRIMARY KEY")
-    sql = sql.replace("REAL", "DOUBLE PRECISION")
-    sql = sql.replace("last_insert_rowid()", "LASTVAL()")
-    sql = sql.replace("?", "%s")
-
-    if sql.strip().startswith("INSERT OR IGNORE INTO alertes_vues"):
-        sql = sql.replace("INSERT OR IGNORE INTO alertes_vues", "INSERT INTO alertes_vues")
-        sql += " ON CONFLICT (resident_id, alerte_id) DO NOTHING"
-
-    if sql.strip().startswith("INSERT OR REPLACE INTO settings"):
-        sql = sql.replace("INSERT OR REPLACE INTO settings", "INSERT INTO settings")
-        sql += " ON CONFLICT (cle) DO UPDATE SET valeur = EXCLUDED.valeur"
-
-    return sql
-
-
-class PGCursor:
-    def __init__(self, cursor):
-        self.cursor = cursor
-
-    def execute(self, sql, params=None):
-        self.cursor.execute(_convert_sql(sql), params or ())
-        return self
-
-    def executemany(self, sql, seq_of_params):
-        self.cursor.executemany(_convert_sql(sql), seq_of_params)
-        return self
-
-    def executescript(self, script):
-        statements = [s.strip() for s in script.split(";") if s.strip()]
-        for statement in statements:
-            self.cursor.execute(_convert_sql(statement))
-        return self
-
-    def fetchone(self):
-        return self.cursor.fetchone()
-
-    def fetchall(self):
-        return self.cursor.fetchall()
-
-
-class PGConnection:
-    def __init__(self):
-        if not DATABASE_URL:
-            raise RuntimeError("DATABASE_URL environment variable is missing.")
-        self.conn = psycopg2.connect(DATABASE_URL, cursor_factory=DictCursor)
-
-    def cursor(self):
-        return PGCursor(self.conn.cursor())
-
-    def execute(self, sql, params=None):
-        cur = self.conn.cursor()
-        cur.execute(_convert_sql(sql), params or ())
-        return cur
-
-    def executemany(self, sql, seq_of_params):
-        cur = self.conn.cursor()
-        cur.executemany(_convert_sql(sql), seq_of_params)
-        return cur
-
-    def commit(self):
-        self.conn.commit()
-
-    def rollback(self):
-        self.conn.rollback()
-
-    def close(self):
-        self.conn.close()
+DB_PATH = Path(__file__).parent / "data" / "innova.db"
 
 
 def get_connection():
-    return PGConnection()
+    DB_PATH.parent.mkdir(exist_ok=True)
+    conn = sqlite3.connect(str(DB_PATH))
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA foreign_keys = ON")
+    return conn
 
 
 def hash_password(password: str, salt: str = None) -> str:
@@ -133,6 +63,7 @@ def generate_payment_ref(prefix: str, charge_id: int) -> str:
 
 
 def init_db():
+    DB_PATH.parent.mkdir(exist_ok=True)
     conn = get_connection()
     c = conn.cursor()
 
@@ -333,7 +264,7 @@ def init_db():
 
     conn.commit()
     conn.close()
-    print("Base de donnees INNOVA initialisee -> PostgreSQL")
+    print("Base de donnees INNOVA initialisee ->", DB_PATH)
 
 
 def _seed_demo_data(c):
@@ -529,7 +460,7 @@ class ResidentDB:
             )
             conn.commit()
             return True, "Resident cree avec succes"
-        except IntegrityError:
+        except sqlite3.IntegrityError:
             return False, "Cet email est deja utilise"
         finally:
             conn.close()
