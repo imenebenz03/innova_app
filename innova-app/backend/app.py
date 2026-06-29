@@ -4,6 +4,7 @@ Backend Flask — API REST
 """
 
 import os
+import re
 import secrets
 from flask import Flask, request, jsonify, session, make_response
 from functools import wraps
@@ -35,13 +36,18 @@ def add_cors(response):
         "http://192.168.137.1:19000",
         "http://192.168.137.1:19001",
         "exp://192.168.137.1:19000",
-        "https://innova-app-git-main-imenebenz-s-projects1.vercel.app",
-        "https://innova-ndxsykp25-imenebenz-s-projects1.vercel.app",
-        "https://innova-7s02d4o5c-imenebenz-s-projects1.vercel.app",
-        "https://innova-app-eta.vercel.app",
     ]
 
-    if origin in allowed_origins:
+    allowed_origins += os.environ.get("CORS_ORIGINS", "").split(",")
+
+    def origin_allowed(o):
+        if o in allowed_origins:
+            return True
+        if re.match(r'^https://innova-[\w-]+-imenebenz-s-projects1\.vercel\.app$', o):
+            return True
+        return False
+
+    if origin_allowed(origin):
         response.headers["Access-Control-Allow-Origin"] = origin
         response.headers["Access-Control-Allow-Credentials"] = "true"
 
