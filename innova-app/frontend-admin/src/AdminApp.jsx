@@ -304,8 +304,7 @@ function PageResidents({ toast, onOuvrirChat }) {
             <tbody>
               {filtered.length === 0 ? (
                 <tr><td colSpan={6} style={{ textAlign: 'center', padding: 40, color: 'var(--muted)', fontSize: 13 }}>Aucun résident trouvé</td></tr>
-              ) : (
-                filtered.map((r, i) => {
+              ) : filtered.map((r, i) => {
                 const av = avatarColors[i % avatarColors.length]
                 return (
                   <tr key={r.id}>
@@ -325,7 +324,6 @@ function PageResidents({ toast, onOuvrirChat }) {
                   </tr>
                 )
               })}
-              )}
             </tbody>
           </table>
         </div>
