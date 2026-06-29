@@ -568,8 +568,10 @@ def analytics():
 
     # Monthly payments (last 6 months)
     mensuel = conn.execute("""
-        SELECT strftime('%Y-%m', date_paiement) AS mois, SUM(montant) AS total
-        FROM paiements WHERE date_paiement >= date('now', '-6 months')
+        SELECT TO_CHAR(date_paiement::timestamp, 'YYYY-MM') AS mois,
+               SUM(montant) AS total
+        FROM paiements
+        WHERE date_paiement::timestamp >= CURRENT_TIMESTAMP - INTERVAL '6 months'
         GROUP BY mois ORDER BY mois
     """).fetchall()
     
@@ -593,8 +595,9 @@ def analytics():
 
     # Messages per day (last 7 days)
     messages = conn.execute("""
-        SELECT date(date_envoi) AS jour, COUNT(*) AS count
-        FROM messages WHERE date_envoi >= date('now', '-7 days')
+        SELECT date_envoi::date AS jour, COUNT(*) AS count
+        FROM messages
+        WHERE date_envoi::timestamp >= CURRENT_TIMESTAMP - INTERVAL '7 days'
         GROUP BY jour ORDER BY jour
     """).fetchall()
 
