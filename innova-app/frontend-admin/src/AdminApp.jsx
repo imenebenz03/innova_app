@@ -1202,6 +1202,146 @@ export default function AdminApp() {
     </div>
   )
 
+  function PageAnalytiques() {
+    const [data, setData] = useState(null)
+    const [loading, setLoading] = useState(true)
+    useEffect(() => { get('/analytics').then(setData).catch(() => {}).finally(() => setLoading(false)) }, [])
+    if (loading) return <Spinner />
+    if (!data) return <div className="card" style={{ padding: 40, textAlign: 'center', color: 'var(--muted)' }}>Erreur de chargement</div>
+
+    const maxMensuel = Math.max(...(data.mensuel?.map(m => m.total) || [0]), 1)
+    const maxImpayes = Math.max(...(data.impayes?.map(i => i.total) || [0]), 1)
+    const maxMsg     = Math.max(...(data.messages_7j?.map(m => m.count) || [0]), 1)
+    const reqTotal   = data.requetes?.reduce((s, r) => s + r.count, 0) || 1
+
+    return (
+      <div>
+        <div className="page-title">Analytiques</div>
+
+        {/* KPI cards */}
+        <div className="stats-row">
+          <div className="stat-card" style={{ background: '#EBF3FF' }}>
+            <div className="stat-val">{data.taux_collecte}%</div>
+            <div className="stat-lbl">Taux de collecte</div>
+          </div>
+          <div className="stat-card" style={{ background: '#E6F9F0' }}>
+            <div className="stat-val">{fmtDA(data.total_percu)}</div>
+            <div className="stat-lbl">Total perçu</div>
+          </div>
+          <div className="stat-card" style={{ background: '#FFF8E6' }}>
+            <div className="stat-val">{fmtDA(data.total_facture - data.total_percu)}</div>
+            <div className="stat-lbl">Restant à percevoir</div>
+          </div>
+          <div className="stat-card" style={{ background: '#FFECEC' }}>
+            <div className="stat-val">{data.mauvais_payeurs?.length || 0}</div>
+            <div className="stat-lbl">Mauvais payeurs (top)</div>
+          </div>
+          <div className="stat-card" style={{ background: '#F5F0FF' }}>
+            <div className="stat-val">{data.total_residents}</div>
+            <div className="stat-lbl">Résidents</div>
+          </div>
+          <div className="stat-card" style={{ background: '#E0F7FA' }}>
+            <div className="stat-val">{data.requetes_ouvertes}</div>
+            <div className="stat-lbl">Requêtes ouvertes</div>
+          </div>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginTop: 20 }}>
+          {/* Monthly payments chart */}
+          <div className="card" style={{ padding: 20 }}>
+            <h3 style={{ margin: '0 0 16px', fontSize: 14, fontWeight: 600 }}>Paiements mensuels</h3>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', height: 140 }}>
+              {(data.mensuel || []).map(m => (
+                <div key={m.mois} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                  <div style={{ width: '100%', background: '#1A6BB5', borderRadius: '4px 4px 0 0', height: Math.max((m.total / maxMensuel) * 120, 4), minHeight: 4, transition: 'height 0.3s' }} />
+                  <span style={{ fontSize: 10, color: 'var(--muted)', whiteSpace: 'nowrap' }}>{m.mois?.slice(5)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Unpaid by residence */}
+          <div className="card" style={{ padding: 20 }}>
+            <h3 style={{ margin: '0 0 16px', fontSize: 14, fontWeight: 600 }}>Impayés par résidence</h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {(data.impayes || []).map(i => (
+                <div key={i.nom_complet}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 4 }}>
+                    <span>{i.nom_complet}</span>
+                    <span style={{ fontWeight: 600 }}>{fmtDA(i.total)}</span>
+                  </div>
+                  <div style={{ background: 'var(--border)', borderRadius: 6, height: 10, overflow: 'hidden' }}>
+                    <div style={{ width: `${(i.total / maxImpayes) * 100}%`, height: '100%', background: '#C41E1E', borderRadius: 6, transition: 'width 0.3s' }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Requests by status */}
+          <div className="card" style={{ padding: 20 }}>
+            <h3 style={{ margin: '0 0 16px', fontSize: 14, fontWeight: 600 }}>Requêtes par statut</h3>
+            <div style={{ display: 'flex', gap: 12 }}>
+              {(data.requetes || []).map(r => {
+                const colors = { en_attente: '#FF6B35', resolu: '#1A7E53', en_cours: '#1A6BB5' }
+                return (
+                  <div key={r.statut} style={{ flex: 1, textAlign: 'center' }}>
+                    <div style={{ fontSize: 28, fontWeight: 700, color: colors[r.statut] || 'var(--muted)' }}>{r.count}</div>
+                    <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>{r.statut === 'en_attente' ? 'En attente' : r.statut === 'resolu' ? 'Résolu' : r.statut}</div>
+                    <div style={{ background: 'var(--border)', borderRadius: 6, height: 8, marginTop: 8, overflow: 'hidden' }}>
+                      <div style={{ width: `${(r.count / reqTotal) * 100}%`, height: '100%', background: colors[r.statut] || '#999', borderRadius: 6 }} />
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Top delinquents */}
+          <div className="card" style={{ padding: 20 }}>
+            <h3 style={{ margin: '0 0 16px', fontSize: 14, fontWeight: 600 }}>Mauvais payeurs</h3>
+            {(data.mauvais_payeurs || []).length === 0 ? (
+              <div style={{ color: 'var(--muted)', fontSize: 13 }}>Aucun impayé</div>
+            ) : (
+              <table style={{ width: '100%', fontSize: 12 }}>
+                <thead><tr><th style={{ textAlign: 'left', padding: '4px 0' }}>Résident</th><th style={{ textAlign: 'left', padding: '4px 0' }}>Unité</th><th style={{ textAlign: 'right', padding: '4px 0' }}>Dû</th></tr></thead>
+                <tbody>
+                  {(data.mauvais_payeurs || []).map((r, i) => (
+                    <tr key={i} style={{ borderTop: '1px solid var(--border)' }}>
+                      <td style={{ padding: '6px 0' }}>{r.nom}</td>
+                      <td style={{ padding: '6px 0' }}>{r.unite}</td>
+                      <td style={{ padding: '6px 0', textAlign: 'right', fontWeight: 600, color: '#C41E1E' }}>{fmtDA(r.total)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+
+          {/* Messages last 7 days */}
+          <div className="card" style={{ padding: 20 }}>
+            <h3 style={{ margin: '0 0 16px', fontSize: 14, fontWeight: 600 }}>Messages (7 derniers jours)</h3>
+            <div style={{ display: 'flex', gap: 6, alignItems: 'flex-end', height: 100 }}>
+              {(data.messages_7j || []).map(m => (
+                <div key={m.jour} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                  <div style={{ width: '100%', background: '#7B5EA7', borderRadius: '4px 4px 0 0', height: Math.max((m.count / maxMsg) * 80, 4), minHeight: 4 }} />
+                  <span style={{ fontSize: 9, color: 'var(--muted)', whiteSpace: 'nowrap' }}>{m.jour?.slice(5)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Alert count */}
+          <div className="card" style={{ padding: 20 }}>
+            <h3 style={{ margin: '0 0 16px', fontSize: 14, fontWeight: 600 }}>Alertes actives</h3>
+            <div style={{ fontSize: 36, fontWeight: 700, color: '#C41E1E' }}>{data.total_alertes}</div>
+            <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>alertes en cours</div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   // MAIN APP
   const navItems = [
     ['accueil',    'Tableau de bord', null,       'M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z'],
@@ -1210,6 +1350,7 @@ export default function AdminApp() {
     ['messagerie', 'Messagerie',      unreadCount, 'M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z'],
     ['alertes',    'Alertes',         alertCount,   'M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z M12 9v4 M12 17h.01'],
     ['requetes',   'Requêtes',        null,       'M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3 M12 17h.01'],
+    ['analytiques', 'Analytiques',      null,       'M18 20V10M12 20V4M6 20v-6'],
   ]
 
   const pageMap = {
@@ -1219,9 +1360,10 @@ export default function AdminApp() {
     messagerie: <PageMessagerie resident={resident} toast={toast} residentInitial={chatResident} onCloseInitial={() => setChatResident(null)} />,
     alertes:    <PageAlertes toast={toast} />,
     requetes:   <PageRequetes toast={toast} />,
+    analytiques: <PageAnalytiques />,
   }
 
-  const pageTitles = { accueil: 'Tableau de bord', residents: 'Résidents', charges: 'Charges', messagerie: 'Messagerie', alertes: 'Alertes', requetes: 'Requêtes' }
+  const pageTitles = { accueil: 'Tableau de bord', residents: 'Résidents', charges: 'Charges', messagerie: 'Messagerie', alertes: 'Alertes', requetes: 'Requêtes', analytiques: 'Analytiques' }
 
   return (
     <div className="app" style={{ fontFamily: "'Inter', system-ui, -apple-system, sans-serif" }}>

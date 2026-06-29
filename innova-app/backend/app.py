@@ -11,7 +11,7 @@ from database import (
     init_db,
     ResidentDB, ChargeDB, MessageDB,
     AlerteDB, RequeteDB, NotificationDB, DeviceTokenDB,
-    ResidenceDB, get_connection, row_to_dict
+    ResidenceDB, get_connection, row_to_dict, rows_to_list
 )
 
 app = Flask(__name__)
@@ -556,6 +556,67 @@ def get_residences():
 @app.route("/api/sante", methods=["GET"])
 def sante():
     return jsonify({"statut": "ok", "app": "INNOVA", "pays": "Algerie"})
+
+@app.route("/api/analytics", methods=["GET"])
+@login_requis
+def analytics():
+    conn = get_connection()
+    # Collection rate
+    total_facture = conn.execute("SELECT COALESCE(SUM(montant_total),0) FROM charges").fetchone()[0]
+    total_percu   = conn.execute("SELECT COALESCE(SUM(montant_total),0) FROM charges WHERE statut='paye'").fetchone()[0]
+    taux = round(total_percu / total_facture * 100, 1) if total_facture else 0
+
+    # Monthly payments (last 6 months)
+    mensuel = conn.execute("""
+        SELECT strftime('%Y-%m', date_paiement) AS mois, SUM(montant) AS total
+        FROM paiements WHERE date_paiement >= date('now', '-6 months')
+        GROUP BY mois ORDER BY mois
+    """).fetchall()
+    
+    # Requests by status
+    requetes = conn.execute("SELECT statut, COUNT(*) AS count FROM requetes GROUP BY statut").fetchall()
+    
+    # Unpaid by residence
+    impayes = conn.execute("""
+        SELECT res.nom_complet, COALESCE(SUM(c.montant_restant),0) AS total
+        FROM charges c JOIN residents r ON c.resident_id=r.id
+        JOIN residences res ON r.residence_id=res.id
+        WHERE c.statut != 'paye' GROUP BY res.nom_complet ORDER BY total DESC
+    """).fetchall()
+
+    # Top delinquent residents
+    mauvais = conn.execute("""
+        SELECT r.nom||' '||r.prenom AS nom, r.unite, SUM(c.montant_restant) AS total
+        FROM charges c JOIN residents r ON c.resident_id=r.id
+        WHERE c.statut != 'paye' GROUP BY r.id ORDER BY total DESC LIMIT 5
+    """).fetchall()
+
+    # Messages per day (last 7 days)
+    messages = conn.execute("""
+        SELECT date(date_envoi) AS jour, COUNT(*) AS count
+        FROM messages WHERE date_envoi >= date('now', '-7 days')
+        GROUP BY jour ORDER BY jour
+    """).fetchall()
+
+    # Total counts
+    total_residents = conn.execute("SELECT COUNT(*) FROM residents WHERE role='resident'").fetchone()[0]
+    total_alertes   = conn.execute("SELECT COUNT(*) FROM alertes WHERE active=1").fetchone()[0]
+    requetes_ouvertes = conn.execute("SELECT COUNT(*) FROM requetes WHERE statut='en_attente'").fetchone()[0]
+
+    conn.close()
+    return jsonify({
+        "taux_collecte": taux,
+        "total_facture": float(total_facture),
+        "total_percu":   float(total_percu),
+        "mensuel":       rows_to_list(mensuel),
+        "requetes":      rows_to_list(requetes),
+        "impayes":       rows_to_list(impayes),
+        "mauvais_payeurs": rows_to_list(mauvais),
+        "messages_7j":   rows_to_list(messages),
+        "total_residents": total_residents,
+        "total_alertes":   total_alertes,
+        "requetes_ouvertes": requetes_ouvertes,
+    })
 
 
 if __name__ == "__main__":
