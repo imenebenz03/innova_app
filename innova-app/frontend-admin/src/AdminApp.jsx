@@ -255,11 +255,16 @@ function PageResidents({ toast, onOuvrirChat }) {
   const [loading, setLoading] = useState(true)
   const [modal, setModal] = useState(false)
   const [selectedResident, setSelectedResident] = useState(null)
+  const [search, setSearch] = useState('')
   const [form, setForm] = useState({ residence_id: '', nom: '', prenom: '', email: '', mot_de_passe: '', unite: '', etage: '', telephone: '' })
   const [envoi, setEnvoi] = useState(false)
   const champ = k => e => setForm(f => ({ ...f, [k]: e.target.value }))
   const charger = async () => { setLoading(true); try { setResidents(await get('/residents')) } finally { setLoading(false) } }
   useEffect(() => { charger() }, [])
+  const q = search.toLowerCase().trim()
+  const filtered = q
+    ? residents.filter(r => (r.nom + ' ' + r.prenom).toLowerCase().includes(q) || r.prenom.toLowerCase().includes(q) || r.nom.toLowerCase().includes(q))
+    : residents
   const creer = async e => {
     e.preventDefault(); setEnvoi(true)
     try {
@@ -284,11 +289,23 @@ function PageResidents({ toast, onOuvrirChat }) {
         </button>
       </div>
       <div className="card" style={{ padding: 0, borderRadius: 16, overflow: 'hidden' }}>
+        <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)' }}>
+          <input
+            className="form-input"
+            placeholder="Rechercher par nom ou prénom…"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            style={{ maxWidth: 320, fontSize: 13 }}
+          />
+        </div>
         <div className="table-wrap">
           <table>
             <thead><tr><th>Résident</th><th>Résidence</th><th>Unité</th><th>Étage</th><th>Email</th><th>Téléphone</th></tr></thead>
             <tbody>
-              {residents.map((r, i) => {
+              {filtered.length === 0 ? (
+                <tr><td colSpan={6} style={{ textAlign: 'center', padding: 40, color: 'var(--muted)', fontSize: 13 }}>Aucun résident trouvé</td></tr>
+              ) : (
+                filtered.map((r, i) => {
                 const av = avatarColors[i % avatarColors.length]
                 return (
                   <tr key={r.id}>
@@ -308,6 +325,7 @@ function PageResidents({ toast, onOuvrirChat }) {
                   </tr>
                 )
               })}
+              )}
             </tbody>
           </table>
         </div>
