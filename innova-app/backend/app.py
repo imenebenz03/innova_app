@@ -595,7 +595,7 @@ def analytics():
 
     # Messages per day (last 7 days)
     messages = conn.execute("""
-        SELECT date_envoi::date AS jour, COUNT(*) AS count
+        SELECT date_envoi::date::text AS jour, COUNT(*) AS count
         FROM messages
         WHERE date_envoi::timestamp >= CURRENT_TIMESTAMP - INTERVAL '7 days'
         GROUP BY jour ORDER BY jour
