@@ -5,6 +5,12 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
+
+    "splash": {
+      "backgroundColor": "#FFFFFF",
+      "resizeMode": "contain"
+    },
+
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "dz.innovim.innova",
@@ -25,8 +31,14 @@
         {
           "color": "#C41E1E"
         }
-      ]
+      ],
+      "expo-font"
     ],
-    "scheme": "innova"
+    "scheme": "innova",
+    "extra": {
+      "eas": {
+        "projectId": "62c4631d-5d1e-4637-bc87-908bdcc6df5a"
+      }
+    }
   }
 }

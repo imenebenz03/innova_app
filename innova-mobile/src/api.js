@@ -2,8 +2,8 @@
 // IMPORTANT: Change SERVER_IP to your computer's local IP address
 // Run "ipconfig" (Windows) or "ifconfig" (Mac/Linux) to find it
 // Look for IPv4 Address under your WiFi adapter
-const SERVER_IP = '192.168.137.1' // CHANGE THIS to your computer's IP!
-export const API_BASE = `http://${SERVER_IP}:5000/api`
+
+const API_BASE = 'https://innova-app.onrender.com/api'
 
 let sessionCookie = null
 

@@ -29,12 +29,19 @@ def add_cors(response):
     allowed_origins = [
         "http://localhost:5173",
         "http://127.0.0.1:5173",
+        "http://localhost:8081",
+        "http://127.0.0.1:8081",
+        "http://192.168.137.1:8081",
+        "http://192.168.137.1:19000",
+        "http://192.168.137.1:19001",
+        "exp://192.168.137.1:19000",
         "https://innova-app-git-main-imenebenz-s-projects1.vercel.app",
         "https://innova-ndxsykp25-imenebenz-s-projects1.vercel.app",
-        "https://innova-7s02d4o5c-imenebenz-s-projects1.vercel.app",    
+        "https://innova-7s02d4o5c-imenebenz-s-projects1.vercel.app",
+        "https://innova-app-eta.vercel.app",
     ]
 
-    if origin == "https://innova-app-eta.vercel.app":
+    if origin in allowed_origins:
         response.headers["Access-Control-Allow-Origin"] = origin
         response.headers["Access-Control-Allow-Credentials"] = "true"
 

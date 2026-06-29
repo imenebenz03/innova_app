@@ -12,11 +12,20 @@ from psycopg2 import IntegrityError
 from psycopg2.extras import DictCursor
 from datetime import datetime
 
+# Load .env file if present
+env_path = os.path.join(os.path.dirname(__file__), ".env")
+if os.path.exists(env_path):
+    with open(env_path) as f:
+        for line in f:
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                k, v = line.split("=", 1)
+                os.environ.setdefault(k.strip(), v.strip())
+
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
 
 def _convert_sql(sql: str) -> str:
-    """Convert old SQLite-style SQL to PostgreSQL SQL."""
     sql = sql.replace("INTEGER PRIMARY KEY AUTOINCREMENT", "SERIAL PRIMARY KEY")
     sql = sql.replace("REAL", "DOUBLE PRECISION")
     sql = sql.replace("last_insert_rowid()", "LASTVAL()")
