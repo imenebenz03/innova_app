@@ -46,7 +46,14 @@ const fmtShort = str => {
   const d = new Date(str)
   return isNaN(d) ? str : d.toLocaleDateString('fr-DZ', { day: 'numeric', month: 'short' })
 }
-const fmtDA = n => `${Number(n || 0).toLocaleString('fr-DZ')} DA`
+const STAFF_ROLES = ['super_admin', 'operations', 'finance', 'admin']
+
+const rolePermissions = {
+  super_admin: ['accueil', 'residents', 'charges', 'messagerie', 'alertes', 'requetes', 'analytiques'],
+  operations:  ['accueil', 'residents', 'messagerie', 'alertes', 'requetes'],
+  finance:     ['accueil', 'charges'],
+}
+const defaultPage = { super_admin: 'accueil', operations: 'accueil', finance: 'accueil' }
 
 const inits = (a, b) => (!a || !b) ? '?' : (a[0] + b[0]).toUpperCase()
 
@@ -243,6 +250,129 @@ function PageAccueil({ setPage }) {
                 </div>
               ))}
             </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function PageOperations() {
+  const [data, setData] = useState(null)
+  const [loading, setLoading] = useState(true)
+  useEffect(() => { get('/dashboard/operations').then(setData).catch(() => {}).finally(() => setLoading(false)) }, [])
+  if (loading) return <Spinner />
+  if (!data) return <div className="card" style={{ padding: 40, textAlign: 'center', color: 'var(--muted)' }}>Erreur de chargement</div>
+  return (
+    <div>
+      <div className="page-title">Tableau de bord — Opérations</div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 14, marginBottom: 20 }}>
+        {[
+          { label: 'Requêtes ouvertes', val: data.requetes_ouvertes || 0, color: '#C41E1E', bg: '#FFECEC' },
+          { label: 'En cours', val: data.requetes_en_cours || 0, color: '#1A6BB5', bg: '#EBF3FF' },
+          { label: 'Résolues', val: data.requetes_resolues || 0, color: '#1A7E53', bg: '#E6F9F0' },
+          { label: 'Taux occupation', val: `${data.taux_occupation || 0}%`, color: '#7B5EA7', bg: '#F5F0FF' },
+        ].map(({ label, val, color, bg }) => (
+          <div key={label} style={{ background: '#fff', borderRadius: 14, padding: '16px 18px', border: '1px solid var(--border)' }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 8 }}>{label}</div>
+            <div style={{ fontSize: 24, fontWeight: 800, color, letterSpacing: -0.5 }}>{val}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18 }}>
+        <div className="card" style={{ padding: 16 }}>
+          <h3 style={{ margin: '0 0 12px', fontSize: 14, fontWeight: 600 }}>Dernières alertes</h3>
+          {(data.alertes_recentes || []).length === 0 ? (
+            <div style={{ color: 'var(--muted)', fontSize: 13 }}>Aucune alerte</div>
+          ) : data.alertes_recentes.map(a => (
+            <div key={a.id} style={{ padding: '8px 0', borderBottom: '1px solid var(--border)', fontSize: 13 }}>
+              <strong>{a.titre}</strong>
+              <div style={{ color: 'var(--muted)', fontSize: 12 }}>{a.contenu}</div>
+            </div>
+          ))}
+        </div>
+        <div className="card" style={{ padding: 16 }}>
+          <h3 style={{ margin: '0 0 12px', fontSize: 14, fontWeight: 600 }}>Résidents actifs (7j)</h3>
+          <div style={{ fontSize: 36, fontWeight: 700, color: '#1A6BB5' }}>{data.residents_actifs_7j || 0}</div>
+          <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>ont envoyé un message cette semaine</div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function PageFinance() {
+  const [data, setData] = useState(null)
+  const [loading, setLoading] = useState(true)
+  useEffect(() => { get('/dashboard/finance').then(setData).catch(() => {}).finally(() => setLoading(false)) }, [])
+  if (loading) return <Spinner />
+  if (!data) return <div className="card" style={{ padding: 40, textAlign: 'center', color: 'var(--muted)' }}>Erreur de chargement</div>
+  const maxChart = Math.max(...(data.mensuel || []).map(m => m.total || 0), 1)
+  return (
+    <div>
+      <div className="page-title">Tableau de bord — Finance</div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 14, marginBottom: 20 }}>
+        {[
+          { label: 'Total facturé', val: data.total_facture ? fmtDA(data.total_facture) : '—', color: '#1A6BB5', bg: '#EBF3FF' },
+          { label: 'Total collecté', val: data.total_collecte ? fmtDA(data.total_collecte) : '—', color: '#1A7E53', bg: '#E6F9F0' },
+          { label: 'Taux de collecte', val: `${data.taux_collecte || 0}%`, color: '#B07D00', bg: '#FFF8E6' },
+          { label: 'Impayés (total)', val: data.impayes_total ? fmtDA(data.impayes_total) : '—', color: '#C41E1E', bg: '#FFECEC' },
+        ].map(({ label, val, color, bg }) => (
+          <div key={label} style={{ background: '#fff', borderRadius: 14, padding: '16px 18px', border: '1px solid var(--border)' }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 8 }}>{label}</div>
+            <div style={{ fontSize: 24, fontWeight: 800, color, letterSpacing: -0.5 }}>{val}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18 }}>
+        <div className="card" style={{ padding: 16 }}>
+          <h3 style={{ margin: '0 0 12px', fontSize: 14, fontWeight: 600 }}>Paiements mensuels (6 mois)</h3>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', height: 120 }}>
+            {(data.mensuel || []).map(m => (
+              <div key={m.mois} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                <div style={{ width: '100%', background: '#1A6BB5', borderRadius: '4px 4px 0 0', height: Math.max((m.total / maxChart) * 100, 4), minHeight: 4 }} />
+                <span style={{ fontSize: 10, color: 'var(--muted)' }}>{m.mois?.slice(5)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="card" style={{ padding: 16 }}>
+          <h3 style={{ margin: '0 0 12px', fontSize: 14, fontWeight: 600 }}>Derniers paiements</h3>
+          {(data.derniers_paiements || []).length === 0 ? (
+            <div style={{ color: 'var(--muted)', fontSize: 13 }}>Aucun paiement récent</div>
+          ) : (
+            <table style={{ width: '100%', fontSize: 12 }}>
+              <thead><tr><th style={{ textAlign: 'left' }}>Résident</th><th style={{ textAlign: 'right' }}>Montant</th></tr></thead>
+              <tbody>
+                {data.derniers_paiements.map(p => (
+                  <tr key={p.id} style={{ borderTop: '1px solid var(--border)' }}>
+                    <td style={{ padding: '6px 0' }}>{p.resident_nom}</td>
+                    <td style={{ padding: '6px 0', textAlign: 'right', fontWeight: 600, color: '#1A7E53' }}>{fmtDA(p.montant)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+      <div style={{ marginTop: 18 }}>
+        <div className="card" style={{ padding: 16 }}>
+          <h3 style={{ margin: '0 0 12px', fontSize: 14, fontWeight: 600 }}>Charges en retard</h3>
+          {(data.impayes || []).length === 0 ? (
+            <div style={{ color: 'var(--muted)', fontSize: 13 }}>Aucune charge en retard</div>
+          ) : (
+            <table style={{ width: '100%', fontSize: 12 }}>
+              <thead><tr><th style={{ textAlign: 'left' }}>Résident</th><th style={{ textAlign: 'left' }}>Unité</th><th style={{ textAlign: 'right' }}>Dû</th></tr></thead>
+              <tbody>
+                {data.impayes.map(i => (
+                  <tr key={i.id} style={{ borderTop: '1px solid var(--border)' }}>
+                    <td style={{ padding: '6px 0' }}>{i.resident_nom}</td>
+                    <td style={{ padding: '6px 0' }}>{i.unite}</td>
+                    <td style={{ padding: '6px 0', textAlign: 'right', fontWeight: 600, color: '#C41E1E' }}>{fmtDA(i.montant_restant)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           )}
         </div>
       </div>
@@ -1117,8 +1247,9 @@ export default function AdminApp() {
     e?.preventDefault(); setErreur(''); setLoading(true)
     try {
       const data = await post('/auth/connexion', { email: email.trim().toLowerCase(), mot_de_passe: mdp })
-      if (data.succes && data.resident.role === 'admin') setResident(data.resident)
-      else setErreur(data.resident?.role !== 'admin' ? 'Accès réservé à l\'administration' : 'Identifiants incorrects')
+      if (data.succes && STAFF_ROLES.includes(data.resident.role)) setResident(data.resident)
+      else if (data.succes) setErreur('Accès réservé à l\'administration')
+      else setErreur('Identifiants incorrects')
     } catch (err) { setErreur(err.message || 'Identifiants incorrects') }
     finally { setLoading(false) }
   }
@@ -1343,7 +1474,7 @@ export default function AdminApp() {
   }
 
   // MAIN APP
-  const navItems = [
+  const navItemsAll = [
     ['accueil',    'Tableau de bord', null,       'M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z'],
     ['residents',  'Résidents',       null,       'M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z M7 12h2v5H7zm4-3h2v8h-2zm4-3h2v11h-2z'],
     ['charges',    'Charges',         null,       'M1 4h22v16a2 2 0 01-2 2H3a2 2 0 01-2-2V4z M1 10h22'],
@@ -1352,9 +1483,18 @@ export default function AdminApp() {
     ['requetes',   'Requêtes',        null,       'M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3 M12 17h.01'],
     ['analytiques', 'Analytiques',      null,       'M18 20V10M12 20V4M6 20v-6'],
   ]
+  const role = resident?.role
+  const allowedPages = rolePermissions[role] || []
+  const navItems = navItemsAll.filter(([id]) => allowedPages.includes(id))
+
+  const pageTitles = {
+    accueil: role === 'finance' ? 'Finance' : role === 'operations' ? 'Opérations' : 'Tableau de bord',
+    residents: 'Résidents', charges: 'Charges', messagerie: 'Messagerie',
+    alertes: 'Alertes', requetes: 'Requêtes', analytiques: 'Analytiques'
+  }
 
   const pageMap = {
-    accueil:    <PageAccueil setPage={setPage} />,
+    accueil: role === 'operations' ? <PageOperations /> : role === 'finance' ? <PageFinance /> : <PageAccueil setPage={setPage} />,
     residents:  <PageResidents toast={toast} onOuvrirChat={ouvrirChatResident} />,
     charges:    <PageCharges toast={toast} />,
     messagerie: <PageMessagerie resident={resident} toast={toast} residentInitial={chatResident} onCloseInitial={() => setChatResident(null)} />,
@@ -1363,7 +1503,7 @@ export default function AdminApp() {
     analytiques: <PageAnalytiques />,
   }
 
-  const pageTitles = { accueil: 'Tableau de bord', residents: 'Résidents', charges: 'Charges', messagerie: 'Messagerie', alertes: 'Alertes', requetes: 'Requêtes', analytiques: 'Analytiques' }
+  const currentPage = allowedPages.includes(page) ? page : allowedPages[0]
 
   return (
     <div className="app" style={{ fontFamily: "'Inter', system-ui, -apple-system, sans-serif" }}>
@@ -1377,7 +1517,7 @@ export default function AdminApp() {
         </div>
         <div className="nav-label">Navigation</div>
         {navItems.map(([id, label, badge, path]) => (
-          <button key={id} className={`nav-item${page === id ? ' on' : ''}`} onClick={() => setPage(id)} style={{ position: 'relative' }}>
+          <button key={id} className={`nav-item${currentPage === id ? ' on' : ''}`} onClick={() => setPage(id)} style={{ position: 'relative' }}>
             <svg viewBox="0 0 24 24"><path d={path} /></svg>
             {label}
             {badge > 0 && (
@@ -1406,13 +1546,13 @@ export default function AdminApp() {
 
       <main className="main">
         <div className="topbar">
-          <div className="topbar-title">{pageTitles[page]}</div>
+          <div className="topbar-title">{pageTitles[currentPage]}</div>
           <div className="topbar-right">
-            <span className="topbar-badge">Administration BENZAAMIA PROMOTION</span>
+            <span className="topbar-badge">Administration · {role === 'super_admin' ? 'Super Admin' : role === 'operations' ? 'Opérations' : role === 'finance' ? 'Finance' : role}</span>
             <div className="topbar-av">{inits(resident.prenom, resident.nom)}</div>
           </div>
         </div>
-        <div className="content">{pageMap[page]}</div>
+        <div className="content">{pageMap[currentPage]}</div>
       </main>
 
       {toastMsg && <ToastBar msg={toastMsg} onClose={() => setToastMsg(null)} />}

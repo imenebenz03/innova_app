@@ -355,7 +355,7 @@ def _seed_demo_data(c):
     c.executemany(
         "INSERT INTO residents (residence_id,nom,prenom,email,mot_de_passe,unite,etage,telephone,role) VALUES (?,?,?,?,?,?,?,?,?)",
         [
-            (3,"INNOVIM","Administration","admin@innovim.dz",        admin_pwd,"ADMIN",0,"+213 21 00 00 00","admin"),
+            (3,"INNOVIM","Administration","admin@innovim.dz",        admin_pwd,"ADMIN",0,"+213 21 00 00 00","super_admin"),
             (1,"Karim",  "Ahmed",         "ahmed.karim@email.dz",    res_pwd,  "7C",  3,"+213 661 234 567","resident"),
             (1,"Boudali","Meriem",        "meriem.boudali@email.dz", res_pwd,  "5A",  2,"+213 770 987 654","resident"),
             (1,"Benali", "Riad",          "riad.benali@email.dz",    res_pwd,  "2B",  1,"+213 555 456 789","resident"),
@@ -502,7 +502,7 @@ class ResidentDB:
     def get_all():
         conn = get_connection()
         rows = conn.execute(
-            "SELECT r.id,r.nom,r.prenom,r.unite,r.etage,r.telephone,r.role,r.date_inscription,res.nom_complet as residence_nom FROM residents r LEFT JOIN residences res ON r.residence_id=res.id WHERE r.role!='admin' ORDER BY r.unite"
+            "SELECT r.id,r.nom,r.prenom,r.unite,r.etage,r.telephone,r.role,r.date_inscription,res.nom_complet as residence_nom FROM residents r LEFT JOIN residences res ON r.residence_id=res.id WHERE r.role NOT IN ('super_admin','operations','finance','admin') ORDER BY r.unite"
         ).fetchall()
         conn.close()
         return rows_to_list(rows)
@@ -641,7 +641,7 @@ class ChargeDB:
                 break
         
         # Message prive automatique
-        admin = row_to_dict(conn.execute("SELECT id FROM residents WHERE role='admin' LIMIT 1").fetchone())
+        admin = row_to_dict(conn.execute("SELECT id FROM residents WHERE role!='resident' LIMIT 1").fetchone())
         if admin:
             canal = f"prive_{min(admin['id'], charge['resident_id'])}_{max(admin['id'], charge['resident_id'])}"
             conn.execute("INSERT INTO messages (expediteur_id,destinataire_id,canal,contenu) VALUES (?,?,?,?)",
@@ -740,7 +740,7 @@ class MessageDB:
     @staticmethod
     def get_conversations_admin():
         conn = get_connection()
-        admin = row_to_dict(conn.execute("SELECT id FROM residents WHERE role='admin' LIMIT 1").fetchone())
+        admin = row_to_dict(conn.execute("SELECT id FROM residents WHERE role!='resident' LIMIT 1").fetchone())
         if not admin:
             conn.close()
             return []
@@ -803,7 +803,7 @@ class MessageDB:
     @staticmethod
     def total_unread_admin():
         conn = get_connection()
-        admin = row_to_dict(conn.execute("SELECT id FROM residents WHERE role='admin' LIMIT 1").fetchone())
+        admin = row_to_dict(conn.execute("SELECT id FROM residents WHERE role!='resident' LIMIT 1").fetchone())
         if not admin:
             conn.close()
             return 0

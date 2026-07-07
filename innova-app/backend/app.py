@@ -62,6 +62,11 @@ def handle_options(path):
 
 # -- DECORATEURS ---------------------------------------------------------------
 
+STAFF_ROLES = ("super_admin", "operations", "finance", "admin")
+
+def _normalize_role(role):
+    return "super_admin" if role == "admin" else role
+
 def login_requis(f):
     @wraps(f)
     def decorated(*args, **kwargs):
@@ -70,15 +75,29 @@ def login_requis(f):
         return f(*args, **kwargs)
     return decorated
 
-def admin_requis(f):
+def staff_requis(f):
     @wraps(f)
     def decorated(*args, **kwargs):
         if "resident_id" not in session:
             return jsonify({"erreur": "Non authentifie"}), 401
-        if session.get("role") != "admin":
-            return jsonify({"erreur": "Acces reserve a l'administration"}), 403
+        role = _normalize_role(session.get("role", ""))
+        if role not in STAFF_ROLES:
+            return jsonify({"erreur": "Acces reserve au personnel"}), 403
         return f(*args, **kwargs)
     return decorated
+
+def role_requis(*roles):
+    def decorator(f):
+        @wraps(f)
+        def decorated(*args, **kwargs):
+            if "resident_id" not in session:
+                return jsonify({"erreur": "Non authentifie"}), 401
+            role = _normalize_role(session.get("role", ""))
+            if role not in roles:
+                return jsonify({"erreur": "Acces non autorise"}), 403
+            return f(*args, **kwargs)
+        return decorated
+    return decorator
 
 
 # -- AUTH ----------------------------------------------------------------------
@@ -133,12 +152,12 @@ def qui_suis_je():
 # -- RESIDENTS -----------------------------------------------------------------
 
 @app.route("/api/residents", methods=["GET"])
-@login_requis
+@staff_requis
 def get_residents():
     return jsonify(ResidentDB.get_all())
 
 @app.route("/api/residents", methods=["POST"])
-@admin_requis
+@role_requis("super_admin")
 def creer_resident():
     d = request.get_json()
     if not d:
@@ -157,17 +176,17 @@ def creer_resident():
 @login_requis
 def get_charges():
     rid = int(request.args.get("resident_id", session["resident_id"]))
-    if session["role"] != "admin":
+    if _normalize_role(session.get("role", "")) not in STAFF_ROLES:
         rid = session["resident_id"]
     return jsonify(ChargeDB.get_by_resident(rid))
 
 @app.route("/api/charges/toutes", methods=["GET"])
-@admin_requis
+@role_requis("super_admin", "finance")
 def get_toutes_charges():
     return jsonify(ChargeDB.get_all_with_residents())
 
 @app.route("/api/charges", methods=["POST"])
-@admin_requis
+@role_requis("super_admin", "finance")
 def creer_charge():
     d = request.get_json()
     if not d:
@@ -182,13 +201,13 @@ def creer_charge():
         return jsonify({"erreur": str(e)}), 400
 
 @app.route("/api/settings/montant-mensuel", methods=["GET"])
-@admin_requis
+@role_requis("super_admin", "finance")
 def get_montant_mensuel():
     from database import SettingsDB
     return jsonify({"montant": SettingsDB.get_montant_mensuel()})
 
 @app.route("/api/settings/montant-mensuel", methods=["POST"])
-@admin_requis
+@role_requis("super_admin")
 def set_montant_mensuel():
     from database import SettingsDB
     d = request.get_json()
@@ -204,7 +223,7 @@ def set_montant_mensuel():
         return jsonify({"erreur": "Montant invalide"}), 400
 
 @app.route("/api/charges/generer-mensuelles", methods=["POST"])
-@admin_requis
+@role_requis("super_admin", "finance")
 def generer_charges_mensuelles():
     from database import SettingsDB
     result = SettingsDB.generer_charges_mensuelles()
@@ -237,7 +256,7 @@ def payer_en_ligne(charge_id):
         return jsonify({"erreur": str(e)}), 400
 
 @app.route("/api/charges/<int:charge_id>/payer-admin", methods=["POST"])
-@admin_requis
+@role_requis("super_admin", "finance")
 def payer_admin(charge_id):
     d = request.get_json()
     if not d:
@@ -265,13 +284,13 @@ def get_paiements_charge(charge_id):
 def get_messages_prives():
     from database import get_connection, row_to_dict
     conn = get_connection()
-    admin_row = row_to_dict(conn.execute("SELECT id FROM residents WHERE role='admin' LIMIT 1").fetchone())
+    admin_row = row_to_dict(conn.execute("SELECT id FROM residents WHERE role!='resident' LIMIT 1").fetchone())
     conn.close()
     if not admin_row:
         return jsonify([])
     resident_id = session["resident_id"]
     admin_id = admin_row["id"]
-    if session["role"] == "admin":
+    if _normalize_role(session.get("role", "")) in STAFF_ROLES:
         with_id = int(request.args.get("avec", 0))
         if not with_id:
             return jsonify([])
@@ -293,7 +312,7 @@ def envoyer_prive():
         return jsonify({"erreur": "Message vide"}), 400
     from database import get_connection, row_to_dict
     conn = get_connection()
-    admin_row = row_to_dict(conn.execute("SELECT id FROM residents WHERE role='admin' LIMIT 1").fetchone())
+    admin_row = row_to_dict(conn.execute("SELECT id FROM residents WHERE role!='resident' LIMIT 1").fetchone())
     conn.close()
     if not admin_row:
         return jsonify({"erreur": "Admin introuvable"}), 500
@@ -302,7 +321,7 @@ def envoyer_prive():
     resident_info = ResidentDB.get_by_id(expediteur_id)
     sender_name = f"{resident_info.get('prenom', '')} {resident_info.get('nom', '')}"
     
-    if session["role"] == "admin":
+    if _normalize_role(session.get("role", "")) in STAFF_ROLES:
         dest_id = int(d["destinataire_id"])
         canal = f"prive_{min(admin_row['id'], dest_id)}_{max(admin_row['id'], dest_id)}"
         
@@ -354,7 +373,7 @@ def envoyer_communaute():
         return jsonify({"erreur": str(e)}), 400
 
 @app.route("/api/messages/conversations", methods=["GET"])
-@admin_requis
+@role_requis("super_admin", "operations")
 def get_conversations():
     return jsonify(MessageDB.get_conversations_admin())
 
@@ -373,12 +392,12 @@ def get_alertes():
     return jsonify(AlerteDB.get_active(residence_id))
 
 @app.route("/api/alertes/historique", methods=["GET"])
-@admin_requis
+@role_requis("super_admin", "operations")
 def get_alertes_historique():
     return jsonify(AlerteDB.get_history())
 
 @app.route("/api/alertes/<int:alerte_id>/archiver", methods=["POST"])
-@admin_requis
+@role_requis("super_admin", "operations")
 def archiver_alerte(alerte_id):
     AlerteDB.archiver(alerte_id)
     return jsonify({"succes": True})
@@ -395,7 +414,7 @@ def alertes_marques_lues():
     return jsonify({"succes": True})
 
 @app.route("/api/alertes", methods=["POST"])
-@admin_requis
+@role_requis("super_admin", "operations")
 def creer_alerte():
     d = request.get_json()
     if not d:
@@ -428,7 +447,7 @@ def creer_alerte():
         return jsonify({"erreur": str(e)}), 400
 
 @app.route("/api/alertes/<int:alerte_id>", methods=["DELETE"])
-@admin_requis
+@role_requis("super_admin")
 def supprimer_alerte(alerte_id):
     AlerteDB.delete(alerte_id)
     return jsonify({"succes": True})
@@ -439,23 +458,23 @@ def supprimer_alerte(alerte_id):
 @app.route("/api/requetes", methods=["GET"])
 @login_requis
 def get_requetes():
-    if session["role"] == "admin":
+    if _normalize_role(session.get("role", "")) in STAFF_ROLES:
         return jsonify(RequeteDB.get_all())
     return jsonify(RequeteDB.get_by_resident(session["resident_id"]))
 
 @app.route("/api/requetes/historique", methods=["GET"])
-@admin_requis
+@role_requis("super_admin", "operations")
 def get_requetes_historique():
     return jsonify(RequeteDB.get_history())
 
 @app.route("/api/requetes/<int:requete_id>", methods=["DELETE"])
-@admin_requis
+@role_requis("super_admin")
 def supprimer_requete(requete_id):
     RequeteDB.delete(requete_id)
     return jsonify({"succes": True})
 
 @app.route("/api/requetes/non-lues-admin", methods=["GET"])
-@admin_requis
+@role_requis("super_admin", "operations")
 def requetes_non_lues_admin():
     return jsonify({"count": RequeteDB.count_en_attente()})
 
@@ -472,7 +491,7 @@ def creer_requete():
         return jsonify({"erreur": str(e)}), 400
 
 @app.route("/api/requetes/<int:requete_id>/repondre", methods=["POST"])
-@admin_requis
+@role_requis("super_admin", "operations")
 def repondre_requete(requete_id):
     d = request.get_json()
     if not d:
@@ -547,7 +566,7 @@ def send_push_notification(expo_token, title, body, data=None):
 # -- SANTE & ADMIN MESSAGES ---------------------------------------------------
 
 @app.route("/api/messages/non-lus-admin", methods=["GET"])
-@admin_requis
+@role_requis("super_admin", "operations")
 def messages_non_lus_admin():
     return jsonify({"count": MessageDB.total_unread_admin()})
 
@@ -564,7 +583,7 @@ def sante():
     return jsonify({"statut": "ok", "app": "INNOVA", "pays": "Algerie"})
 
 @app.route("/api/analytics", methods=["GET"])
-@login_requis
+@role_requis("super_admin")
 def analytics():
     conn = get_connection()
     # Collection rate
@@ -625,6 +644,74 @@ def analytics():
         "total_residents": total_residents,
         "total_alertes":   total_alertes,
         "requetes_ouvertes": requetes_ouvertes,
+    })
+
+
+# -- DASHBOARDS (Operations / Finance) ---------------------------------------
+
+@app.route("/api/dashboard/operations", methods=["GET"])
+@role_requis("super_admin", "operations")
+def dashboard_operations():
+    conn = get_connection()
+    requetes_ouvertes = conn.execute("SELECT COUNT(*) FROM requetes WHERE statut='en_attente'").fetchone()[0]
+    requetes_en_cours = conn.execute("SELECT COUNT(*) FROM requetes WHERE statut='en_cours'").fetchone()[0]
+    requetes_resolues = conn.execute("SELECT COUNT(*) FROM requetes WHERE statut='resolu'").fetchone()[0]
+    total_residents = conn.execute("SELECT COUNT(*) FROM residents WHERE role='resident'").fetchone()[0]
+    alertes_recentes = rows_to_list(conn.execute(
+        "SELECT id, titre, contenu, date_creation FROM alertes WHERE active=1 ORDER BY date_creation DESC LIMIT 5"
+    ).fetchall())
+    residents_actifs_7j = conn.execute("""
+        SELECT COUNT(DISTINCT expediteur_id) FROM messages
+        WHERE date_envoi::timestamp >= CURRENT_TIMESTAMP - INTERVAL '7 days'
+    """).fetchone()[0]
+    conn.close()
+    return jsonify({
+        "requetes_ouvertes": requetes_ouvertes,
+        "requetes_en_cours": requetes_en_cours,
+        "requetes_resolues": requetes_resolues,
+        "taux_occupation": round(total_residents / 200 * 100, 1) if total_residents else 0,
+        "alertes_recentes": alertes_recentes,
+        "residents_actifs_7j": residents_actifs_7j,
+    })
+
+@app.route("/api/dashboard/finance", methods=["GET"])
+@role_requis("super_admin", "finance")
+def dashboard_finance():
+    conn = get_connection()
+    total_facture = conn.execute("SELECT COALESCE(SUM(montant_total),0) FROM charges").fetchone()[0]
+    total_percu   = conn.execute("SELECT COALESCE(SUM(montant),0) FROM paiements").fetchone()[0]
+    taux = round(total_percu / total_facture * 100, 1) if total_facture else 0
+    impayes_total = total_facture - total_percu
+
+    mensuel = rows_to_list(conn.execute("""
+        SELECT TO_CHAR(date_paiement::timestamp, 'YYYY-MM') AS mois,
+               SUM(montant) AS total
+        FROM paiements
+        WHERE date_paiement::timestamp >= CURRENT_TIMESTAMP - INTERVAL '6 months'
+        GROUP BY mois ORDER BY mois
+    """).fetchall())
+
+    derniers_paiements = rows_to_list(conn.execute("""
+        SELECT p.id, p.montant, r.nom||' '||r.prenom AS resident_nom
+        FROM paiements p JOIN residents r ON p.resident_id=r.id
+        ORDER BY p.date_paiement DESC LIMIT 5
+    """).fetchall())
+
+    impayes = rows_to_list(conn.execute("""
+        SELECT c.id, r.nom||' '||r.prenom AS resident_nom, r.unite, c.montant_restant
+        FROM charges c JOIN residents r ON c.resident_id=r.id
+        WHERE c.statut != 'paye' ORDER BY c.montant_restant DESC LIMIT 10
+    """).fetchall())
+
+    conn.close()
+    return jsonify({
+        "total_facture": float(total_facture),
+        "total_collecte": float(total_percu),
+        "taux_collecte": taux,
+        "impayes_total": float(impayes_total),
+        "mensuel": mensuel,
+        "derniers_paiements": derniers_paiements,
+        "impayes": impayes,
     })
 
 
