@@ -1483,7 +1483,7 @@ export default function AdminApp() {
     ['requetes',   'Requêtes',        null,       'M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3 M12 17h.01'],
     ['analytiques', 'Analytiques',      null,       'M18 20V10M12 20V4M6 20v-6'],
   ]
-  const role = resident?.role
+  const role = resident?.role === 'admin' ? 'super_admin' : resident?.role
   const allowedPages = rolePermissions[role] || []
   const navItems = navItemsAll.filter(([id]) => allowedPages.includes(id))
 
