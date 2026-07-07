@@ -343,9 +343,30 @@ def init_db():
         conn.commit()
         _seed_demo_data(c)
 
+    _ensure_staff_accounts(c)
+
     conn.commit()
     conn.close()
     print("Base de donnees INNOVA initialisee -> PostgreSQL")
+
+
+def _ensure_staff_accounts(c):
+    staff = [
+        ("admin@innovim.dz",    "Administration", "super_admin"),
+        ("finance@innovim.dz",   "Finance",        "finance"),
+        ("operations@innovim.dz","Operations",     "operations"),
+    ]
+    for email, nom, role in staff:
+        existing = c.execute("SELECT id, role FROM residents WHERE email=?", (email,)).fetchone()
+        if not existing:
+            c.execute(
+                "INSERT INTO residents (residence_id,nom,prenom,email,mot_de_passe,unite,etage,telephone,role) VALUES (?,?,?,?,?,?,?,?,?)",
+                (3, nom, "Service", email, hash_password("admin123"), "ADMIN", 0, "+213 21 00 00 00", role)
+            )
+            print(f"  -> Compte cree: {email} ({role})")
+        elif existing["role"] != role:
+            c.execute("UPDATE residents SET role=? WHERE id=?", (role, existing["id"]))
+            print(f"  -> Role mis a jour: {email} -> {role}")
 
 
 def _seed_demo_data(c):
