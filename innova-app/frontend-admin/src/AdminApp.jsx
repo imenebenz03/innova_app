@@ -46,6 +46,10 @@ const fmtShort = str => {
   const d = new Date(str)
   return isNaN(d) ? str : d.toLocaleDateString('fr-DZ', { day: 'numeric', month: 'short' })
 }
+const fmtDA = val => {
+  if (val == null || isNaN(val)) return '—'
+  return Number(val).toLocaleString('fr-DZ', { style: 'currency', currency: 'DZD', maximumFractionDigits: 0 })
+}
 const STAFF_ROLES = ['super_admin', 'operations', 'finance', 'admin']
 
 const rolePermissions = {
