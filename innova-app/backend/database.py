@@ -356,6 +356,8 @@ def _seed_demo_data(c):
         "INSERT INTO residents (residence_id,nom,prenom,email,mot_de_passe,unite,etage,telephone,role) VALUES (?,?,?,?,?,?,?,?,?)",
         [
             (3,"INNOVIM","Administration","admin@innovim.dz",        admin_pwd,"ADMIN",0,"+213 21 00 00 00","super_admin"),
+            (3,"INNOVIM","Finance","finance@innovim.dz",           admin_pwd,"ADMIN",0,"+213 21 00 00 01","finance"),
+            (3,"INNOVIM","Operations","operations@innovim.dz",     admin_pwd,"ADMIN",0,"+213 21 00 00 02","operations"),
             (1,"Karim",  "Ahmed",         "ahmed.karim@email.dz",    res_pwd,  "7C",  3,"+213 661 234 567","resident"),
             (1,"Boudali","Meriem",        "meriem.boudali@email.dz", res_pwd,  "5A",  2,"+213 770 987 654","resident"),
             (1,"Benali", "Riad",          "riad.benali@email.dz",    res_pwd,  "2B",  1,"+213 555 456 789","resident"),

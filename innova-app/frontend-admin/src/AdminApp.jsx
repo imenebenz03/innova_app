@@ -1227,6 +1227,7 @@ function PageRequetes({ toast }) {
 export default function AdminApp() {
   const [resident, setResident] = useState(null)
   const [page, setPage] = useState('accueil')
+  const [selectedRole, setSelectedRole] = useState('super_admin')
   const [email, setEmail] = useState('admin@innovim.dz')
   const [mdp, setMdp] = useState('admin123')
   const [erreur, setErreur] = useState('')
@@ -1236,11 +1237,24 @@ export default function AdminApp() {
   const [unreadCount, setUnreadCount] = useState(0)
   const [alertCount, setAlertCount] = useState(0)
 
+  const roleCreds = {
+    super_admin: { email: 'admin@innovim.dz', mdp: 'admin123', label: 'Super Admin', icon: '🛡️', desc: 'Accès complet à toutes les fonctionnalités' },
+    finance:     { email: 'finance@innovim.dz', mdp: 'admin123', label: 'Finance', icon: '💰', desc: 'Gestion des charges et paiements' },
+    operations:  { email: 'operations@innovim.dz', mdp: 'admin123', label: 'Opérations', icon: '⚙️', desc: 'Messagerie, alertes et requêtes' },
+  }
+
   const toast = msg => setToastMsg(msg)
 
   const ouvrirChatResident = r => {
     setChatResident(r)
     setPage('messagerie')
+  }
+
+  const choisirRole = role => {
+    setSelectedRole(role)
+    setEmail(roleCreds[role].email)
+    setMdp(roleCreds[role].mdp)
+    setErreur('')
   }
 
   const seConnecter = async e => {
@@ -1288,7 +1302,7 @@ export default function AdminApp() {
       <div style={{ position: 'fixed', bottom: '20%', right: '15%', width: 220, height: 220, borderRadius: '50%', background: 'radial-gradient(circle, rgba(107,62,186,0.12) 0%, transparent 70%)', pointerEvents: 'none' }} />
       <div style={{
         background: 'rgba(255,255,255,0.98)', borderRadius: 24, padding: '44px 40px 36px',
-        width: '100%', maxWidth: 420,
+        width: '100%', maxWidth: 460,
         boxShadow: '0 32px 80px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.1)',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 32 }}>
@@ -1301,8 +1315,8 @@ export default function AdminApp() {
           </div>
         </div>
 
-        <div style={{ fontSize: 24, fontWeight: 700, marginBottom: 6, color: '#0F1628', letterSpacing: -0.5 }}>Espace administrateur</div>
-        <div style={{ fontSize: 13, color: '#6B7280', marginBottom: 28, lineHeight: 1.5 }}>Accès réservé à l'administration de la résidence.</div>
+        <div style={{ fontSize: 24, fontWeight: 700, marginBottom: 6, color: '#0F1628', letterSpacing: -0.5 }}>Espace administration</div>
+        <div style={{ fontSize: 13, color: '#6B7280', marginBottom: 24, lineHeight: 1.5 }}>Sélectionnez un profil pour accéder au tableau de bord.</div>
 
         {erreur && (
           <div style={{ background: '#FFECEC', color: '#C41E1E', padding: '11px 14px', borderRadius: 10, fontSize: 13, marginBottom: 16, borderLeft: '3px solid #C41E1E', fontWeight: 500 }}>
@@ -1310,9 +1324,29 @@ export default function AdminApp() {
           </div>
         )}
 
+        <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+          {Object.entries(roleCreds).map(([key, cred]) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => choisirRole(key)}
+              style={{
+                flex: 1, padding: '14px 8px', borderRadius: 12, cursor: 'pointer',
+                border: `2px solid ${selectedRole === key ? '#C41E1E' : '#E5E7EB'}`,
+                background: selectedRole === key ? '#FFF5F5' : '#FAFAFA',
+                textAlign: 'center', transition: 'all 0.15s',
+              }}
+            >
+              <div style={{ fontSize: 22, marginBottom: 4 }}>{cred.icon}</div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: selectedRole === key ? '#C41E1E' : '#374151' }}>{cred.label}</div>
+              <div style={{ fontSize: 10, color: '#9CA3AF', marginTop: 2, lineHeight: 1.3 }}>{cred.desc}</div>
+            </button>
+          ))}
+        </div>
+
         <form onSubmit={seConnecter}>
-          <div className="form-group" style={{ marginBottom: 14 }}>
-            <label className="form-label" style={{ fontWeight: 600, fontSize: 12.5, color: '#374151' }}>Email administrateur</label>
+          <div className="form-group" style={{ marginBottom: 12 }}>
+            <label className="form-label" style={{ fontWeight: 600, fontSize: 12.5, color: '#374151' }}>Email</label>
             <input className="form-input" type="email" value={email} onChange={e => setEmail(e.target.value)} required style={{ height: 44 }} />
           </div>
           <div className="form-group" style={{ marginBottom: 20 }}>
@@ -1323,12 +1357,9 @@ export default function AdminApp() {
             className="btn btn-red" type="submit" disabled={loading}
             style={{ width: '100%', padding: 14, fontSize: 14, fontWeight: 700, borderRadius: 12, background: 'linear-gradient(135deg,#C41E1E,#9B0F0F)', boxShadow: '0 4px 16px rgba(196,30,30,0.35)' }}
           >
-            {loading ? 'Connexion…' : 'Accéder au tableau de bord'}
+            {loading ? 'Connexion…' : `Accéder en tant que ${roleCreds[selectedRole]?.label || ''}`}
           </button>
         </form>
-        <div style={{ fontSize: 11.5, color: '#9CA3AF', textAlign: 'center', marginTop: 18 }}>
-          Démo : admin@innovim.dz / admin123
-        </div>
       </div>
     </div>
   )
