@@ -30,6 +30,7 @@ def _convert_sql(sql: str) -> str:
     sql = sql.replace("REAL", "DOUBLE PRECISION")
     sql = sql.replace("last_insert_rowid()", "LASTVAL()")
     sql = sql.replace("?", "%s")
+    sql = sql.replace("datetime('now')", "CURRENT_TIMESTAMP")
 
     if sql.strip().startswith("INSERT OR IGNORE INTO alertes_vues"):
         sql = sql.replace("INSERT OR IGNORE INTO alertes_vues", "INSERT INTO alertes_vues")
