@@ -434,10 +434,10 @@ function PageResidents({ toast, onOuvrirChat, onViewProfil }) {
         </div>
         <div className="table-wrap">
           <table>
-            <thead><tr><th>Résident</th><th>Résidence</th><th>Unité</th><th>Étage</th><th>Email</th><th>Téléphone</th></tr></thead>
+            <thead><tr><th>Résident</th><th>Résidence</th><th>Unité</th><th>Étage</th></tr></thead>
             <tbody>
               {filtered.length === 0 ? (
-                <tr><td colSpan={6} style={{ textAlign: 'center', padding: 40, color: 'var(--muted)', fontSize: 13 }}>Aucun résident trouvé</td></tr>
+                <tr><td colSpan={4} style={{ textAlign: 'center', padding: 40, color: 'var(--muted)', fontSize: 13 }}>Aucun résident trouvé</td></tr>
               ) : filtered.map((r, i) => {
                 const av = avatarColors[i % avatarColors.length]
                 return (
@@ -446,15 +446,13 @@ function PageResidents({ toast, onOuvrirChat, onViewProfil }) {
                       <div 
                         onClick={() => setSelectedResident(r)}
                         style={{ width: 36, height: 36, borderRadius: '50%', background: av.bg, color: av.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, flexShrink: 0, cursor: 'pointer', transition: 'transform 0.15s' }}
-                        title="Cliquer pour ouvrir le chat"
+                        title="Cliquer pour ouvrir"
                       >{inits(r.prenom, r.nom)}</div>
                       <div style={{ fontWeight: 600, fontSize: 13 }}>{r.prenom} {r.nom}</div>
                     </div></td>
                     <td><span style={{ background: 'var(--red-light)', color: 'var(--red)', padding: '2px 8px', borderRadius: 6, fontSize: 11, fontWeight: 600 }}>{r.residence_nom || 'INNOVIM'}</span></td>
                     <td><strong>{r.unite}</strong></td>
                     <td>{r.etage}</td>
-                    <td style={{ color: 'var(--muted)', fontSize: 12 }}>{r.email}</td>
-                    <td style={{ color: 'var(--muted)', fontSize: 12 }}>{r.telephone || '—'}</td>
                   </tr>
                 )
               })}
@@ -502,10 +500,10 @@ function PageResidents({ toast, onOuvrirChat, onViewProfil }) {
             <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 20 }}>{selectedResident.unite} · {selectedResident.residence_nom || 'INNOVIM'}</div>
             <div className="modal-btns" style={{ flexDirection: 'column', gap: 8 }}>
               <button type="button" className="btn btn-red" style={{ width: '100%' }} onClick={() => { setSelectedResident(null); onOuvrirChat(selectedResident) }}>
-                <span style={{ marginRight: 6 }}>💬</span> Ouvrir le chat
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: 6 }}><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg> Ouvrir le chat
               </button>
               <button type="button" className="btn btn-outline" style={{ width: '100%' }} onClick={() => { const r = selectedResident; setSelectedResident(null); onViewProfil(r.id) }}>
-                <span style={{ marginRight: 6 }}>👤</span> Voir le profil
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: 6 }}><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Voir le profil
               </button>
             </div>
           </div>
@@ -1571,10 +1569,10 @@ export default function AdminApp() {
     }
 
     const tabs = [
-      { id: 'paiements', label: 'Tous les paiements', icon: '💰' },
-      { id: 'historique', label: 'Historique des paiements', icon: '📋' },
-      { id: 'requetes', label: 'Demandes de maintenance', icon: '🔧' },
-      { id: 'reclamations', label: 'Réclamations', icon: '⚠️' },
+      { id: 'paiements', label: 'Tous les paiements', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>' },
+      { id: 'historique', label: 'Historique des paiements', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>' },
+      { id: 'requetes', label: 'Demandes de maintenance', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>' },
+      { id: 'reclamations', label: 'Réclamations', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>' },
     ]
 
     if (loading) return <Spinner />
@@ -1644,16 +1642,15 @@ export default function AdminApp() {
             <div className="sec">Informations financières</div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
               {[
-                { label: 'Total charges', val: finances.total_charges, color: 'var(--blue)', bg: 'var(--blue-l)', icon: '📄' },
-                { label: 'Total payé', val: finances.total_paid, color: 'var(--green)', bg: 'var(--green-l)', icon: '✅' },
-                { label: 'Reste à payer', val: finances.remaining, color: 'var(--red)', bg: 'var(--red-light)', icon: '⏳' },
+                { label: 'Total charges', val: finances.total_charges, color: 'var(--blue)', bg: 'var(--blue-l)' },
+                { label: 'Total payé', val: finances.total_paid, color: 'var(--green)', bg: 'var(--green-l)' },
+                { label: 'Reste à payer', val: finances.remaining, color: 'var(--red)', bg: 'var(--red-light)' },
               ].map(s => (
-                <div key={s.label} style={{
-                  padding: 20, background: s.bg, borderRadius: 12,
-                  display: 'flex', flexDirection: 'column', gap: 8,
-                }}>
-                  <div style={{ fontSize: 20 }}>{s.icon}</div>
-                  <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>{s.label}</div>
+                  <div key={s.label} style={{
+                    padding: 20, background: s.bg, borderRadius: 12,
+                    display: 'flex', flexDirection: 'column', gap: 8,
+                  }}>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>{s.label}</div>
                   <div style={{ fontSize: 24, fontWeight: 700, color: s.color }}>{fmtDA(s.val)}</div>
                 </div>
               ))}
@@ -1664,7 +1661,7 @@ export default function AdminApp() {
         {/* History button */}
         <div style={{ marginTop: 8 }}>
           <button className="btn btn-outline" onClick={() => openHistory('paiements')} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 14 }}>
-            <span style={{ fontSize: 18 }}>📜</span> Historique
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> Historique
           </button>
         </div>
 
@@ -1673,8 +1670,8 @@ export default function AdminApp() {
           <div className="modal-overlay" onClick={() => setHistoryModal(false)}>
             <div className="modal" style={{ maxWidth: 640, maxHeight: '80vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
               <div className="modal-title" style={{ flexShrink: 0 }}>
-                <span>📜</span> Historique
-                <button onClick={() => setHistoryModal(false)} style={{ marginLeft: 'auto', background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: 'var(--muted)' }}>✕</button>
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: 8 }}><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> Historique
+                <button onClick={() => setHistoryModal(false)} style={{ marginLeft: 'auto', background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', color: 'var(--muted)', padding: '4px 8px', borderRadius: 6 }}>✕</button>
               </div>
 
               {/* Tabs */}
@@ -1687,7 +1684,7 @@ export default function AdminApp() {
                     cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', gap: 5,
                     borderBottom: historyTab === t.id ? '2px solid var(--red)' : '2px solid transparent',
                   }}>
-                    <span>{t.icon}</span> {t.label}
+                    <span dangerouslySetInnerHTML={{ __html: t.icon }} /> {t.label}
                   </button>
                 ))}
               </div>
@@ -1695,7 +1692,7 @@ export default function AdminApp() {
               {/* Tab content */}
               <div style={{ flex: 1, overflowY: 'auto', minHeight: 200 }}>
                 {historyLoading ? <Spinner /> : !historyData || historyData.length === 0 ? (
-                  <div className="empty-state"><div className="empty-icon">📭</div><div className="empty-title">Aucune donnée</div><div className="empty-sub">Aucun élément trouvé pour cette section</div></div>
+                  <div className="empty-state"><div className="empty-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ color: 'var(--hint)' }}><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/></svg></div><div className="empty-title">Aucune donnée</div><div className="empty-sub">Aucun élément trouvé pour cette section</div></div>
                 ) : (
                   <div>
                     {(historyTab === 'paiements' || historyTab === 'historique') && (
@@ -1757,17 +1754,16 @@ export default function AdminApp() {
     ['messagerie', 'Messagerie',      unreadCount, 'M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z'],
     ['alertes',    'Alertes',         alertCount,   'M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z M12 9v4 M12 17h.01'],
     ['requetes',   'Requêtes',        null,       'M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3 M12 17h.01'],
-    ['profil',     'Mon Profil',       null,       'M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2 M12 3a4 4 0 100 8 4 4 0 000-8z'],
     ['analytiques', 'Analytiques',      null,       'M18 20V10M12 20V4M6 20v-6'],
   ]
   const role = resident?.role === 'admin' ? 'super_admin' : resident?.role
   const allowedPages = rolePermissions[role] || []
-  const navItems = navItemsAll.filter(([id]) => allowedPages.includes(id))
+  const navItems = navItemsAll.filter(([id]) => allowedPages.includes(id) && id !== 'profil')
 
   const pageTitles = {
     accueil: role === 'finance' ? 'Finance' : role === 'operations' ? 'Opérations' : 'Tableau de bord',
     residents: 'Résidents', charges: 'Charges', messagerie: 'Messagerie',
-    alertes: 'Alertes', requetes: 'Requêtes', analytiques: 'Analytiques', profil: 'Mon Profil'
+    alertes: 'Alertes', requetes: 'Requêtes', analytiques: 'Analytiques'
   }
 
   const pageMap = {
