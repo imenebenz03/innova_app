@@ -215,6 +215,8 @@ def init_db():
             auteur_id       INTEGER NOT NULL,
             residence_id   INTEGER,
             active         INTEGER NOT NULL DEFAULT 1,
+            epingle        INTEGER NOT NULL DEFAULT 0,
+            date_publication TEXT,
             date_creation  TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (auteur_id) REFERENCES residents(id) ON DELETE CASCADE,
             FOREIGN KEY (residence_id) REFERENCES residences(id) ON DELETE SET NULL
@@ -336,6 +338,16 @@ def init_db():
 
     conn.commit()
     ResidenceDB.seed_default()
+
+    # Migrate existing schema
+    try:
+        c.execute("ALTER TABLE alertes ADD COLUMN IF NOT EXISTS epingle INTEGER NOT NULL DEFAULT 0")
+    except:
+        pass
+    try:
+        c.execute("ALTER TABLE alertes ADD COLUMN IF NOT EXISTS date_publication TEXT")
+    except:
+        pass
 
     resident_count = c.execute("SELECT COUNT(*) FROM residents WHERE role='resident'").fetchone()[0]
     if resident_count == 0:
@@ -842,14 +854,15 @@ class AlerteDB:
     @staticmethod
     def get_active(residence_id=None):
         conn = get_connection()
+        base = "SELECT a.*,r.nom||' '||r.prenom AS auteur_nom FROM alertes a JOIN residents r ON a.auteur_id=r.id WHERE a.active=1 AND (a.date_publication IS NULL OR a.date_publication <= datetime('now'))"
         if residence_id:
             rows = conn.execute(
-                "SELECT a.*,r.nom||' '||r.prenom AS auteur_nom FROM alertes a JOIN residents r ON a.auteur_id=r.id WHERE a.active=1 AND (a.residence_id=? OR a.residence_id IS NULL) ORDER BY a.date_creation DESC",
+                base + " AND (a.residence_id=? OR a.residence_id IS NULL) ORDER BY a.epingle DESC, a.date_creation DESC",
                 (residence_id,)
             ).fetchall()
         else:
             rows = conn.execute(
-                "SELECT a.*,r.nom||' '||r.prenom AS auteur_nom FROM alertes a JOIN residents r ON a.auteur_id=r.id WHERE a.active=1 ORDER BY a.date_creation DESC"
+                base + " ORDER BY a.epingle DESC, a.date_creation DESC"
             ).fetchall()
         conn.close()
         return rows_to_list(rows)
@@ -900,7 +913,7 @@ class AlerteDB:
         conn.close()
 
     @staticmethod
-    def create(titre, contenu, type_alerte, auteur_id, residence_id=None):
+    def create(titre, contenu, type_alerte, auteur_id, residence_id=None, epingle=0, date_publication=None):
         titre = titre.strip()
         contenu = contenu.strip()
         if not titre or not contenu:
@@ -909,8 +922,8 @@ class AlerteDB:
         if type_alerte not in valid_types:
             type_alerte = "info"
         conn = get_connection()
-        conn.execute("INSERT INTO alertes (titre,contenu,type_alerte,auteur_id,residence_id) VALUES (?,?,?,?,?)",
-                     (titre, contenu, type_alerte, auteur_id, residence_id))
+        conn.execute("INSERT INTO alertes (titre,contenu,type_alerte,auteur_id,residence_id,epingle,date_publication) VALUES (?,?,?,?,?,?,?)",
+                     (titre, contenu, type_alerte, auteur_id, residence_id, 1 if epingle else 0, date_publication or None))
         
         if residence_id:
             residents = conn.execute("SELECT id FROM residents WHERE role='resident' AND residence_id=?", (residence_id,)).fetchall()

@@ -98,20 +98,40 @@ function AlerteCard({ a, onDel, onDelete }) {
     succes:    { l: 'Résolu',       bg: '#E6F9F0', border: '#6DD6A2', color: '#1A7E53', dot: '#10B981' },
   }
   const c = cfg[a.type_alerte] || cfg.info
+  const isPinned = a.epingle
+  const isScheduled = a.date_publication && new Date(a.date_publication) > new Date()
   return (
     <div style={{
       background: c.bg, borderLeft: `4px solid ${c.color}`, borderRadius: 12, padding: 16, marginBottom: 12,
+      outline: isPinned ? `1.5px solid ${c.color}` : 'none', outlineOffset: -1,
     }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', flex: 1 }}>
           <span style={{ width: 8, height: 8, borderRadius: 4, background: c.dot, marginTop: 6 }} />
-          <div>
-            <div style={{ fontWeight: 700, fontSize: 15, color: c.color, marginBottom: 4 }}>{a.titre}</div>
-            <div style={{ fontSize: 13, color: 'var(--text)', lineHeight: 1.6 }}>{a.contenu}</div>
-            <div style={{ fontSize: 11.5, color: 'var(--hint)', marginTop: 8 }}>{fmtFull(a.date_creation)} · {a.auteur_nom}</div>
+          <div style={{ flex: 1 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <div style={{ fontWeight: 700, fontSize: 15, color: c.color }}>{a.titre}</div>
+              {isPinned && (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, padding: '2px 8px', borderRadius: 4, background: c.color + '20', color: c.color, fontSize: 10, fontWeight: 700 }}>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z"/></svg>
+                  Épinglé
+                </span>
+              )}
+              {isScheduled && (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, padding: '2px 8px', borderRadius: 4, background: 'rgba(100,116,139,0.15)', color: 'var(--muted)', fontSize: 10, fontWeight: 700 }}>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                  Programmée
+                </span>
+              )}
+            </div>
+            <div style={{ fontSize: 13, color: 'var(--text)', lineHeight: 1.6, marginTop: 4 }}>{a.contenu}</div>
+            <div style={{ fontSize: 11.5, color: 'var(--hint)', marginTop: 8 }}>
+              {fmtFull(a.date_creation)} · {a.auteur_nom}
+              {isScheduled && <> · Publiée le {fmtFull(a.date_publication)}</>}
+            </div>
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div style={{ display: 'flex', gap: 8, marginLeft: 12, flexShrink: 0 }}>
           {onDel && (
             <button onClick={onDel} title="Archiver" style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, padding: 4 }}>✓</button>
           )}
@@ -982,7 +1002,7 @@ function PageAlertes({ toast }) {
   const [loading, setLoading] = useState(true)
   const [modal, setModal] = useState(false)
   const [activeTab, setActiveTab] = useState('actives')
-  const [form, setForm] = useState({ residence_id: '', type_alerte: 'info', titre: '', contenu: '' })
+  const [form, setForm] = useState({ residence_id: '', type_alerte: 'info', titre: '', contenu: '', epingle: false, date_publication: '' })
   const [envoi, setEnvoi] = useState(false)
   
   const residences = [
@@ -1014,10 +1034,10 @@ function PageAlertes({ toast }) {
   const creer = async e => {
     e.preventDefault(); setEnvoi(true)
     try {
-      await post('/alertes', form)
+      await post('/alertes', { ...form, epingle: form.epingle ? 1 : 0 })
       toast('Alerte créée avec succès !')
       setModal(false)
-      setForm({ residence_id: '', type_alerte: 'info', titre: '', contenu: '' })
+      setForm({ residence_id: '', type_alerte: 'info', titre: '', contenu: '', epingle: false, date_publication: '' })
       charger()
     } catch (err) { toast(err.message) } finally { setEnvoi(false) }
   }
@@ -1118,6 +1138,34 @@ function PageAlertes({ toast }) {
             </div>
             <div className="form-group"><label className="form-label">Titre *</label><input className="form-input" value={form.titre} onChange={e => setForm(f => ({ ...f, titre: e.target.value }))} placeholder="Ex: Coupure d'eau" required /></div>
             <div className="form-group"><label className="form-label">Contenu *</label><textarea className="form-textarea" value={form.contenu} onChange={e => setForm(f => ({ ...f, contenu: e.target.value }))} rows={3} placeholder="Décrivez l'alerte..." required /></div>
+            <div style={{ display: 'flex', gap: 16, marginBottom: 16, alignItems: 'center' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', userSelect: 'none' }}>
+                <div onClick={() => setForm(f => ({ ...f, epingle: !f.epingle }))} style={{
+                  width: 44, height: 24, borderRadius: 12, position: 'relative', cursor: 'pointer', transition: 'background 0.2s',
+                  background: form.epingle ? 'var(--red)' : '#CBD5E1',
+                }}>
+                  <div style={{
+                    width: 20, height: 20, borderRadius: '50%', background: '#fff', position: 'absolute', top: 2, transition: 'left 0.2s',
+                    left: form.epingle ? 22 : 2, boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                  }} />
+                </div>
+                <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style={{ verticalAlign: 'middle', marginRight: 4 }}><path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z"/></svg>
+                  Épingler en haut
+                </span>
+              </label>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Programmer la publication (optionnel)</label>
+              <input
+                className="form-input"
+                type="datetime-local"
+                value={form.date_publication}
+                onChange={e => setForm(f => ({ ...f, date_publication: e.target.value }))}
+                style={{ fontSize: 13 }}
+              />
+              <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>Laissez vide pour publier immédiatement</div>
+            </div>
             <div className="modal-btns">
               <button type="button" className="btn btn-outline" onClick={() => setModal(false)}>Annuler</button>
               <button type="submit" className="btn btn-red" style={{ flex: 2 }} disabled={envoi}>{envoi ? 'Création…' : 'Créer l\'alerte'}</button>

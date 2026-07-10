@@ -479,7 +479,7 @@ def creer_alerte():
     }.get(d.get("type_alerte", "info"), "ℹ️")
     
     try:
-        AlerteDB.create(d["titre"], d["contenu"], d["type_alerte"], session["resident_id"], residence_id)
+        AlerteDB.create(d["titre"], d["contenu"], d["type_alerte"], session["resident_id"], residence_id, d.get("epingle", 0), d.get("date_publication"))
         
         all_tokens = DeviceTokenDB.get_all()
         for token_info in all_tokens:
