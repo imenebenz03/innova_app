@@ -438,7 +438,12 @@ def messages_non_lus():
 @login_requis
 def get_alertes():
     residence_id = request.args.get("residence_id", type=int)
-    return jsonify(AlerteDB.get_active(residence_id))
+    try:
+        return jsonify(AlerteDB.get_active(residence_id))
+    except Exception as e:
+        print(f"[get_alertes] ERROR: {e}")
+        import traceback; traceback.print_exc()
+        return jsonify({"erreur": str(e)}), 500
 
 @app.route("/api/alertes/historique", methods=["GET"])
 @role_requis("super_admin", "operations")

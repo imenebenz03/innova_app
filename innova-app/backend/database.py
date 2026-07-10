@@ -855,15 +855,20 @@ class AlerteDB:
     @staticmethod
     def get_active(residence_id=None):
         conn = get_connection()
-        base = "SELECT a.*,r.nom||' '||r.prenom AS auteur_nom FROM alertes a JOIN residents r ON a.auteur_id=r.id WHERE a.active=1 AND (a.date_publication IS NULL OR a.date_publication <= datetime('now'))"
-        if residence_id:
+        try:
+            base = "SELECT a.*,r.nom||' '||r.prenom AS auteur_nom FROM alertes a JOIN residents r ON a.auteur_id=r.id WHERE a.active=1 AND (a.date_publication IS NULL OR a.date_publication <= datetime('now'))"
+            if residence_id:
+                rows = conn.execute(
+                    base + " AND (a.residence_id=? OR a.residence_id IS NULL) ORDER BY a.epingle DESC, a.date_creation DESC",
+                    (residence_id,)
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    base + " ORDER BY a.epingle DESC, a.date_creation DESC"
+                ).fetchall()
+        except Exception:
             rows = conn.execute(
-                base + " AND (a.residence_id=? OR a.residence_id IS NULL) ORDER BY a.epingle DESC, a.date_creation DESC",
-                (residence_id,)
-            ).fetchall()
-        else:
-            rows = conn.execute(
-                base + " ORDER BY a.epingle DESC, a.date_creation DESC"
+                "SELECT a.*,r.nom||' '||r.prenom AS auteur_nom FROM alertes a JOIN residents r ON a.auteur_id=r.id WHERE a.active=1 ORDER BY a.date_creation DESC"
             ).fetchall()
         conn.close()
         return rows_to_list(rows)

@@ -1021,14 +1021,14 @@ function PageAlertes({ toast }) {
   useEffect(() => { 
     Promise.all([get('/alertes'), get('/alertes/historique')])
       .then(([a, h]) => { setAlertes(a || []); setAlertesHistory(h || []) })
-      .catch(() => {})
+      .catch(e => toast(e.message))
       .finally(() => setLoading(false)) 
   }, [])
   
   const charger = () => {
     Promise.all([get('/alertes'), get('/alertes/historique')])
       .then(([a, h]) => { setAlertes(a || []); setAlertesHistory(h || []) })
-      .catch(() => {})
+      .catch(e => toast(e.message))
   }
   
   const creer = async e => {
