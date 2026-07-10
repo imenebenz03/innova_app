@@ -397,7 +397,7 @@ function PageResidents({ toast, onOuvrirChat, onViewProfil }) {
   useEffect(() => { charger() }, [])
   const q = search.toLowerCase().trim()
   const filtered = q
-    ? residents.filter(r => (r.nom + ' ' + r.prenom).toLowerCase().includes(q) || r.prenom.toLowerCase().includes(q) || r.nom.toLowerCase().includes(q))
+    ? residents.filter(r => (r.nom + ' ' + r.prenom).toLowerCase().includes(q) || r.prenom.toLowerCase().includes(q) || r.nom.toLowerCase().includes(q) || (r.unite || '').toLowerCase().includes(q))
     : residents
   const creer = async e => {
     e.preventDefault(); setEnvoi(true)
@@ -426,7 +426,7 @@ function PageResidents({ toast, onOuvrirChat, onViewProfil }) {
         <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)' }}>
           <input
             className="form-input"
-            placeholder="Rechercher par nom ou prénom…"
+            placeholder="Rechercher par nom, prénom ou appartement…"
             value={search}
             onChange={e => setSearch(e.target.value)}
             style={{ maxWidth: 320, fontSize: 13 }}
@@ -519,6 +519,7 @@ function PageCharges({ toast }) {
   const [modal, setModal] = useState(null)
   const [settingsModal, setSettingsModal] = useState(false)
   const [paiementForm, setPaiementForm] = useState({ montant: '', note: '' })
+  const [chargeSearch, setChargeSearch] = useState('')
   const [settingsForm, setSettingsForm] = useState({ montant: '15000' })
   const [activeTab, setActiveTab] = useState('actives')
   const [envoi, setEnvoi] = useState(false)
@@ -558,6 +559,9 @@ function PageCharges({ toast }) {
   
   const chargesActives = charges.filter(c => c.statut !== 'paye')
   const chargesHistory = charges.filter(c => c.statut === 'paye')
+  const cq = chargeSearch.toLowerCase().trim()
+  const filteredActives = cq ? chargesActives.filter(c => (c.resident_nom || '').toLowerCase().includes(cq)) : chargesActives
+  const filteredHistory = cq ? chargesHistory.filter(c => (c.resident_nom || '').toLowerCase().includes(cq)) : chargesHistory
   
   const enregistrerPaiement = async e => {
     e.preventDefault()
@@ -618,13 +622,25 @@ function PageCharges({ toast }) {
         </button>
       </div>
       
+      <div style={{ marginBottom: 16 }}>
+        <input
+          className="form-input"
+          placeholder="Rechercher par nom du résident…"
+          value={chargeSearch}
+          onChange={e => setChargeSearch(e.target.value)}
+          style={{ maxWidth: 320, fontSize: 13 }}
+        />
+      </div>
+
 {activeTab === 'actives' && (
         chargesActives.length === 0 ? <div style={{ padding: 40, textAlign: 'center', color: 'var(--muted)' }}>Aucune charge active</div> : (
           <div className="card" style={{ padding: 0, borderRadius: 16, overflow: 'hidden' }}>
             <table>
               <thead><tr><th>Désignation</th><th>Résident</th><th>Montant</th><th>Échéance</th><th>Statut</th><th>Action</th></tr></thead>
               <tbody>
-                {chargesActives.map(c => (
+                {filteredActives.length === 0 ? (
+                  <tr><td colSpan={6} style={{ textAlign: 'center', padding: 40, color: 'var(--muted)', fontSize: 13 }}>Aucun résultat</td></tr>
+                ) : filteredActives.map(c => (
                   <tr key={c.id}>
                     <td style={{ fontWeight: 600 }}>{c.designation}</td>
                     <td>{c.resident_nom}</td>
@@ -714,7 +730,9 @@ function PageCharges({ toast }) {
             <table>
               <thead><tr><th>Désignation</th><th>Résident</th><th>Montant payé</th><th>Date paiement</th><th>Statut</th></tr></thead>
               <tbody>
-                {chargesHistory.map(c => (
+                {filteredHistory.length === 0 ? (
+                  <tr><td colSpan={5} style={{ textAlign: 'center', padding: 40, color: 'var(--muted)', fontSize: 13 }}>Aucun résultat</td></tr>
+                ) : filteredHistory.map(c => (
                   <tr key={c.id}>
                     <td style={{ fontWeight: 600 }}>{c.designation}</td>
                     <td>{c.resident_nom}</td>
@@ -734,6 +752,7 @@ function PageCharges({ toast }) {
 
 function PageMessagerie({ resident, toast, residentInitial, onCloseInitial }) {
   const [convs, setConvs] = useState([])
+  const [convSearch, setConvSearch] = useState('')
   const [actif, setActif] = useState(null)
   const [msgs, setMsgs] = useState([])
   const [texte, setTexte] = useState('')
@@ -741,6 +760,10 @@ function PageMessagerie({ resident, toast, residentInitial, onCloseInitial }) {
   const [sending, setSending] = useState(false)
   const msgsRef = useRef(null)
   const pollingRef = useRef(null)
+  const sq = convSearch.toLowerCase().trim()
+  const filteredConvs = sq
+    ? convs.filter(c => (c.prenom + ' ' + c.nom).toLowerCase().includes(sq) || (c.unite || '').toLowerCase().includes(sq))
+    : convs
 
   useEffect(() => {
     if (residentInitial) {
@@ -827,8 +850,17 @@ function PageMessagerie({ resident, toast, residentInitial, onCloseInitial }) {
                 : 'Tout est à jour'}
             </div>
           </div>
+          <div style={{ padding: '8px 12px', borderBottom: '1px solid var(--border)' }}>
+            <input
+              className="form-input"
+              placeholder="Rechercher un résident ou appartement…"
+              value={convSearch}
+              onChange={e => setConvSearch(e.target.value)}
+              style={{ fontSize: 12, padding: '8px 12px', borderRadius: 10 }}
+            />
+          </div>
           <div style={{ flex: 1, overflowY: 'auto' }}>
-            {convs.length === 0 && (
+            {filteredConvs.length === 0 && (
               <div style={{ padding: 40, textAlign: 'center' }}>
                 <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#CBD5E1" strokeWidth="1.5" style={{ marginBottom: 12 }}>
                   <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
@@ -836,7 +868,7 @@ function PageMessagerie({ resident, toast, residentInitial, onCloseInitial }) {
                 <div style={{ fontSize: 13, color: 'var(--muted)' }}>Aucune conversation</div>
               </div>
             )}
-            {convs.map((r, idx) => {
+            {filteredConvs.map((r, idx) => {
               const hasUnread = r.non_lus > 0
               return (
                 <div key={r.id} onClick={() => selectConv(r)} style={{
