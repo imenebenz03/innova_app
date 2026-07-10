@@ -53,9 +53,9 @@ const fmtDA = val => {
 const STAFF_ROLES = ['super_admin', 'operations', 'finance', 'admin']
 
 const rolePermissions = {
-  super_admin: ['accueil', 'residents', 'charges', 'messagerie', 'alertes', 'requetes', 'analytiques'],
-  operations:  ['accueil', 'residents', 'messagerie', 'alertes', 'requetes'],
-  finance:     ['accueil', 'charges'],
+  super_admin: ['accueil', 'residents', 'charges', 'messagerie', 'alertes', 'requetes', 'analytiques', 'profil'],
+  operations:  ['accueil', 'residents', 'messagerie', 'alertes', 'requetes', 'profil'],
+  finance:     ['accueil', 'charges', 'profil'],
 }
 const defaultPage = { super_admin: 'accueil', operations: 'accueil', finance: 'accueil' }
 
@@ -384,7 +384,7 @@ function PageFinance() {
   )
 }
 
-function PageResidents({ toast, onOuvrirChat }) {
+function PageResidents({ toast, onOuvrirChat, onViewProfil }) {
   const [residents, setResidents] = useState([])
   const [loading, setLoading] = useState(true)
   const [modal, setModal] = useState(false)
@@ -493,17 +493,19 @@ function PageResidents({ toast, onOuvrirChat }) {
         </Modal>
       )}
       {selectedResident && (
-        <Modal titre="Ouvrir le chat" icone="💬" onFermer={() => setSelectedResident(null)} maxWidth={380}>
+        <Modal titre={selectedResident.prenom + ' ' + selectedResident.nom} icone="👤" onFermer={() => setSelectedResident(null)} maxWidth={440}>
           <div style={{ textAlign: 'center', padding: '10px 0' }}>
             <div style={{ width: 64, height: 64, borderRadius: '50%', background: avatarColors[selectedResident.id % avatarColors.length].bg, color: avatarColors[selectedResident.id % avatarColors.length].color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, fontWeight: 700, margin: '0 auto 16px' }}>
               {inits(selectedResident.prenom, selectedResident.nom)}
             </div>
             <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>{selectedResident.prenom} {selectedResident.nom}</div>
             <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 20 }}>{selectedResident.unite} · {selectedResident.residence_nom || 'INNOVIM'}</div>
-            <div className="modal-btns">
-              <button type="button" className="btn btn-outline" onClick={() => setSelectedResident(null)}>Annuler</button>
-              <button type="button" className="btn btn-red" style={{ flex: 2 }} onClick={() => { setSelectedResident(null); onOuvrirChat(selectedResident) }}>
+            <div className="modal-btns" style={{ flexDirection: 'column', gap: 8 }}>
+              <button type="button" className="btn btn-red" style={{ width: '100%' }} onClick={() => { setSelectedResident(null); onOuvrirChat(selectedResident) }}>
                 <span style={{ marginRight: 6 }}>💬</span> Ouvrir le chat
+              </button>
+              <button type="button" className="btn btn-outline" style={{ width: '100%' }} onClick={() => { const r = selectedResident; setSelectedResident(null); onViewProfil(r.id) }}>
+                <span style={{ marginRight: 6 }}>👤</span> Voir le profil
               </button>
             </div>
           </div>
@@ -1238,8 +1240,10 @@ export default function AdminApp() {
   const [loading, setLoading] = useState(false)
   const [toastMsg, setToastMsg] = useState(null)
   const [chatResident, setChatResident] = useState(null)
+  const [profilResidentId, setProfilResidentId] = useState(null)
   const [unreadCount, setUnreadCount] = useState(0)
   const [alertCount, setAlertCount] = useState(0)
+  const handleViewProfil = rid => { setProfilResidentId(rid); setPage('profil') }
 
   const roleCreds = {
     super_admin: { email: 'admin@innovim.dz', mdp: 'admin123', label: 'Super Admin', icon: '🛡️', desc: 'Accès complet à toutes les fonctionnalités' },
@@ -1508,6 +1512,243 @@ export default function AdminApp() {
     )
   }
 
+
+  // -- PROFIL PAGE ----------------------------------------------------------------
+
+  const ROLE_LABELS = {
+    super_admin: 'Super Administrateur',
+    finance: 'Finance',
+    operations: 'Opérations',
+    admin: 'Administrateur',
+    resident: 'Résident',
+  }
+
+  function PageProfil({ residentId, role, toast }) {
+    const [data, setData] = useState(null)
+    const [finances, setFinances] = useState(null)
+    const [loading, setLoading] = useState(true)
+    const [historyModal, setHistoryModal] = useState(false)
+    const [historyTab, setHistoryTab] = useState('paiements')
+    const [historyData, setHistoryData] = useState(null)
+    const [historyLoading, setHistoryLoading] = useState(false)
+    const isOwn = !residentId
+
+    const fetchProfile = useCallback(async () => {
+      setLoading(true)
+      try {
+        if (isOwn) {
+          const d = await get('/auth/profil')
+          setData(d)
+          if (role === 'super_admin' || role === 'finance') {
+            try { setFinances(await get(`/residents/${d.id}/finances`)) } catch {}
+          }
+        } else {
+          const [d, f] = await Promise.all([
+            get(`/residents/${residentId}`),
+            (role === 'super_admin' || role === 'finance') ? get(`/residents/${residentId}/finances`) : Promise.resolve(null)
+          ])
+          setData(d); setFinances(f)
+        }
+      } catch (err) { toast(err.message) } finally { setLoading(false) }
+    }, [residentId, role, isOwn])
+
+    useEffect(() => { fetchProfile() }, [fetchProfile])
+
+    const openHistory = async tab => {
+      setHistoryTab(tab); setHistoryModal(true); setHistoryLoading(true); setHistoryData(null)
+      const id = residentId || data?.id
+      try {
+        if (tab === 'paiements' || tab === 'historique') {
+          setHistoryData(await get(`/paiements?resident_id=${id}`))
+        } else if (tab === 'requetes') {
+          const all = await get('/requetes')
+          setHistoryData(Array.isArray(all) ? all.filter(r => r.resident_id === id) : [])
+        } else if (tab === 'reclamations') {
+          const all = await get('/requetes')
+          setHistoryData(Array.isArray(all) ? all.filter(r => r.resident_id === id && /plainte|reclam|probleme|nuisance/i.test(r.sujet + ' ' + r.contenu)) : [])
+        }
+      } catch {} finally { setHistoryLoading(false) }
+    }
+
+    const tabs = [
+      { id: 'paiements', label: 'Tous les paiements', icon: '💰' },
+      { id: 'historique', label: 'Historique des paiements', icon: '📋' },
+      { id: 'requetes', label: 'Demandes de maintenance', icon: '🔧' },
+      { id: 'reclamations', label: 'Réclamations', icon: '⚠️' },
+    ]
+
+    if (loading) return <Spinner />
+
+    if (!data) return <div className="card" style={{ textAlign: 'center', padding: 48, color: 'var(--muted)' }}>Profil introuvable</div>
+
+    return (
+      <div>
+        {/* Header card */}
+        <div className="card" style={{ padding: 0, overflow: 'hidden', borderRadius: 16 }}>
+          <div style={{
+            background: 'linear-gradient(135deg, var(--red-deep) 0%, #2D1A1A 100%)',
+            padding: '36px 32px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 24,
+          }}>
+            <div style={{
+              width: 80, height: 80, borderRadius: '50%',
+              background: 'rgba(255,255,255,0.15)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 28, fontWeight: 700, color: '#fff', flexShrink: 0,
+              border: '3px solid rgba(255,255,255,0.2)',
+            }}>
+              {inits(data.prenom, data.nom)}
+            </div>
+            <div>
+              <div style={{ fontSize: 24, fontWeight: 700, color: '#fff', marginBottom: 4 }}>
+                {data.prenom} {data.nom}
+              </div>
+              <span className="pill" style={{
+                background: role === 'super_admin' ? 'rgba(239,68,68,0.3)' : role === 'finance' ? 'rgba(16,185,129,0.3)' : 'rgba(59,130,246,0.3)',
+                color: '#fff', border: '1px solid rgba(255,255,255,0.15)',
+              }}>
+                {ROLE_LABELS[data.role] || data.role}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* General Information */}
+        <div className="card" style={{ borderRadius: 16 }}>
+          <div className="sec">Informations générales</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+            {[
+              ['Nom complet', `${data.prenom} ${data.nom}`],
+              ['Appartement', data.unite],
+              ['Résidence', data.residence_nom || '—'],
+              ['Téléphone', data.telephone || '—'],
+              ['Email', data.email],
+              ['Statut', ROLE_LABELS[data.role] || data.role],
+            ].map(([label, val]) => (
+              <div key={label} style={{
+                padding: '14px 16px', background: 'var(--bg)', borderRadius: 12,
+                display: 'flex', flexDirection: 'column', gap: 4,
+              }}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>{label}</div>
+                <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>{val}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Financial Information (super_admin / finance only) */}
+        {(role === 'super_admin' || role === 'finance') && finances && (
+          <div className="card" style={{ borderRadius: 16 }}>
+            <div className="sec">Informations financières</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
+              {[
+                { label: 'Total charges', val: finances.total_charges, color: 'var(--blue)', bg: 'var(--blue-l)', icon: '📄' },
+                { label: 'Total payé', val: finances.total_paid, color: 'var(--green)', bg: 'var(--green-l)', icon: '✅' },
+                { label: 'Reste à payer', val: finances.remaining, color: 'var(--red)', bg: 'var(--red-light)', icon: '⏳' },
+              ].map(s => (
+                <div key={s.label} style={{
+                  padding: 20, background: s.bg, borderRadius: 12,
+                  display: 'flex', flexDirection: 'column', gap: 8,
+                }}>
+                  <div style={{ fontSize: 20 }}>{s.icon}</div>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>{s.label}</div>
+                  <div style={{ fontSize: 24, fontWeight: 700, color: s.color }}>{fmtDA(s.val)}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* History button */}
+        <div style={{ marginTop: 8 }}>
+          <button className="btn btn-outline" onClick={() => openHistory('paiements')} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 14 }}>
+            <span style={{ fontSize: 18 }}>📜</span> Historique
+          </button>
+        </div>
+
+        {/* History Modal */}
+        {historyModal && (
+          <div className="modal-overlay" onClick={() => setHistoryModal(false)}>
+            <div className="modal" style={{ maxWidth: 640, maxHeight: '80vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
+              <div className="modal-title" style={{ flexShrink: 0 }}>
+                <span>📜</span> Historique
+                <button onClick={() => setHistoryModal(false)} style={{ marginLeft: 'auto', background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: 'var(--muted)' }}>✕</button>
+              </div>
+
+              {/* Tabs */}
+              <div style={{ display: 'flex', gap: 4, borderBottom: '1px solid var(--border)', paddingBottom: 0, marginBottom: 16, flexShrink: 0 }}>
+                {tabs.map(t => (
+                  <button key={t.id} onClick={() => openHistory(t.id)} style={{
+                    padding: '10px 16px', border: 'none', background: historyTab === t.id ? 'var(--bg)' : 'transparent',
+                    borderRadius: '8px 8px 0 0', fontWeight: historyTab === t.id ? 600 : 500,
+                    color: historyTab === t.id ? 'var(--text)' : 'var(--muted)',
+                    cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', gap: 5,
+                    borderBottom: historyTab === t.id ? '2px solid var(--red)' : '2px solid transparent',
+                  }}>
+                    <span>{t.icon}</span> {t.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Tab content */}
+              <div style={{ flex: 1, overflowY: 'auto', minHeight: 200 }}>
+                {historyLoading ? <Spinner /> : !historyData || historyData.length === 0 ? (
+                  <div className="empty-state"><div className="empty-icon">📭</div><div className="empty-title">Aucune donnée</div><div className="empty-sub">Aucun élément trouvé pour cette section</div></div>
+                ) : (
+                  <div>
+                    {(historyTab === 'paiements' || historyTab === 'historique') && (
+                      <table style={{ fontSize: 12 }}>
+                        <thead><tr><th>Date</th><th>Désignation</th><th>Montant</th><th>Référence</th><th>Méthode</th></tr></thead>
+                        <tbody>
+                          {historyData.map(p => (
+                            <tr key={p.id}>
+                              <td style={{ whiteSpace: 'nowrap' }}>{fmtDate(p.date_paiement)}</td>
+                              <td style={{ maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.designation}</td>
+                              <td style={{ fontWeight: 600, color: 'var(--green)' }}>{fmtDA(p.montant)}</td>
+                              <td style={{ fontSize: 10, color: 'var(--hint)' }}>{p.reference || '—'}</td>
+                              <td><span className="pill pill-blue">{p.methode === 'administration' ? 'Admin' : 'En ligne'}</span></td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+                    {(historyTab === 'requetes' || historyTab === 'reclamations') && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                        {historyData.map(r => (
+                          <div key={r.id} style={{ padding: '14px 16px', background: 'var(--bg)', borderRadius: 12, border: '1px solid var(--border)' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
+                              <div style={{ fontWeight: 600, fontSize: 13 }}>{r.sujet}</div>
+                              <span className={`pill ${r.statut === 'resolu' ? 'pill-green' : r.statut === 'en_attente' ? 'pill-gold' : 'pill-gray'}`}>
+                                {r.statut === 'resolu' ? 'Résolu' : r.statut === 'en_attente' ? 'En attente' : r.statut}
+                              </span>
+                            </div>
+                            <div style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.6 }}>{r.contenu}</div>
+                            {r.reponse && (
+                              <div style={{ marginTop: 8, padding: '8px 12px', background: '#fff', borderRadius: 8, borderLeft: '3px solid var(--green)', fontSize: 12, color: 'var(--text)' }}>
+                                <span style={{ fontWeight: 600, color: 'var(--green)' }}>Réponse: </span>{r.reponse}
+                              </div>
+                            )}
+                            <div style={{ marginTop: 6, fontSize: 11, color: 'var(--hint)' }}>
+                              {fmtDate(r.date_creation)}
+                              {r.date_reponse && <> · Résolu le {fmtDate(r.date_reponse)}</>}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+
   // MAIN APP
   const navItemsAll = [
     ['accueil',    'Tableau de bord', null,       'M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z'],
@@ -1516,6 +1757,7 @@ export default function AdminApp() {
     ['messagerie', 'Messagerie',      unreadCount, 'M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z'],
     ['alertes',    'Alertes',         alertCount,   'M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z M12 9v4 M12 17h.01'],
     ['requetes',   'Requêtes',        null,       'M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3 M12 17h.01'],
+    ['profil',     'Mon Profil',       null,       'M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2 M12 3a4 4 0 100 8 4 4 0 000-8z'],
     ['analytiques', 'Analytiques',      null,       'M18 20V10M12 20V4M6 20v-6'],
   ]
   const role = resident?.role === 'admin' ? 'super_admin' : resident?.role
@@ -1525,17 +1767,18 @@ export default function AdminApp() {
   const pageTitles = {
     accueil: role === 'finance' ? 'Finance' : role === 'operations' ? 'Opérations' : 'Tableau de bord',
     residents: 'Résidents', charges: 'Charges', messagerie: 'Messagerie',
-    alertes: 'Alertes', requetes: 'Requêtes', analytiques: 'Analytiques'
+    alertes: 'Alertes', requetes: 'Requêtes', analytiques: 'Analytiques', profil: 'Mon Profil'
   }
 
   const pageMap = {
     accueil: role === 'operations' ? <PageOperations /> : role === 'finance' ? <PageFinance /> : <PageAccueil setPage={setPage} />,
-    residents:  <PageResidents toast={toast} onOuvrirChat={ouvrirChatResident} />,
+    residents:  <PageResidents toast={toast} onOuvrirChat={ouvrirChatResident} onViewProfil={handleViewProfil} />,
     charges:    <PageCharges toast={toast} />,
     messagerie: <PageMessagerie resident={resident} toast={toast} residentInitial={chatResident} onCloseInitial={() => setChatResident(null)} />,
     alertes:    <PageAlertes toast={toast} />,
     requetes:   <PageRequetes toast={toast} />,
     analytiques: <PageAnalytiques />,
+    profil: <PageProfil residentId={profilResidentId} role={role} toast={toast} />,
   }
 
   const currentPage = allowedPages.includes(page) ? page : allowedPages[0]
@@ -1552,7 +1795,7 @@ export default function AdminApp() {
         </div>
         <div className="nav-label">Navigation</div>
         {navItems.map(([id, label, badge, path]) => (
-          <button key={id} className={`nav-item${currentPage === id ? ' on' : ''}`} onClick={() => setPage(id)} style={{ position: 'relative' }}>
+          <button key={id} className={`nav-item${currentPage === id ? ' on' : ''}`} onClick={() => { if (id === 'profil') setProfilResidentId(null); setPage(id) }} style={{ position: 'relative' }}>
             <svg viewBox="0 0 24 24"><path d={path} /></svg>
             {label}
             {badge > 0 && (

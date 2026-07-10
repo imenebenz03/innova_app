@@ -148,6 +148,19 @@ def deconnexion():
 def qui_suis_je():
     return jsonify({"resident_id": session["resident_id"], "role": session["role"]})
 
+@app.route("/api/auth/profil", methods=["GET"])
+@login_requis
+def profil():
+    rid = session["resident_id"]
+    conn = get_connection()
+    row = conn.execute("SELECT r.*, res.nom_complet as residence_nom FROM residents r LEFT JOIN residences res ON r.residence_id=res.id WHERE r.id=?", (rid,)).fetchone()
+    conn.close()
+    if not row:
+        return jsonify({"erreur": "Introuvable"}), 404
+    resident = row_to_dict(row)
+    resident.pop("mot_de_passe", None)
+    return jsonify(resident)
+
 
 # -- RESIDENTS -----------------------------------------------------------------
 
@@ -168,6 +181,42 @@ def creer_resident():
         d.get("telephone", "")
     )
     return jsonify({"succes": ok, "message": msg}), (201 if ok else 400)
+
+@app.route("/api/residents/<int:rid>", methods=["GET"])
+@staff_requis
+def get_resident(rid):
+    conn = get_connection()
+    row = conn.execute("SELECT r.id,r.nom,r.prenom,r.unite,r.etage,r.telephone,r.email,r.role,r.date_inscription,res.nom_complet as residence_nom FROM residents r LEFT JOIN residences res ON r.residence_id=res.id WHERE r.id=?", (rid,)).fetchone()
+    conn.close()
+    if not row:
+        return jsonify({"erreur": "Resident introuvable"}), 404
+    return jsonify(row_to_dict(row))
+
+@app.route("/api/residents/<int:rid>/finances", methods=["GET"])
+@role_requis("super_admin", "finance")
+def get_resident_finances(rid):
+    conn = get_connection()
+    total = conn.execute("SELECT COALESCE(SUM(montant_total),0) FROM charges WHERE resident_id=?", (rid,)).fetchone()[0]
+    paye = conn.execute("SELECT COALESCE(SUM(p.montant),0) FROM paiements p JOIN charges c ON p.charge_id=c.id WHERE c.resident_id=?", (rid,)).fetchone()[0]
+    conn.close()
+    return jsonify({"total_charges": float(total), "total_paid": float(paye), "remaining": round(float(total) - float(paye), 2)})
+
+@app.route("/api/paiements", methods=["GET"])
+@login_requis
+def get_paiements():
+    resident_id = request.args.get("resident_id", type=int)
+    conn = get_connection()
+    sql = """SELECT p.*, c.designation, c.montant_total, c.echeance
+             FROM paiements p JOIN charges c ON p.charge_id=c.id"""
+    params = ()
+    if resident_id:
+        sql += " WHERE p.resident_id=? ORDER BY p.date_paiement DESC"
+        params = (resident_id,)
+    else:
+        sql += " ORDER BY p.date_paiement DESC LIMIT 50"
+    rows = conn.execute(sql, params).fetchall()
+    conn.close()
+    return jsonify(rows_to_list(rows))
 
 
 # -- CHARGES -------------------------------------------------------------------
