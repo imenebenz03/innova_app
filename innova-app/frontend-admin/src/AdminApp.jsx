@@ -17,6 +17,18 @@ const COMPANY_NAME = 'BENZAAMIA PROMOTION'
 const A4_WIDTH = 595.28
 const A4_HEIGHT = 841.89
 const A4_MARGIN = 50
+const PAYMENT_METHODS = [
+  { value: 'cash', label: 'Cash (Espèce)' },
+  { value: 'bank_card', label: 'Bank Card' },
+  { value: 'bank_transfer', label: 'Bank Transfer (Virement)' },
+  { value: 'cheque', label: 'Cheque' },
+]
+
+const paymentMethodLabel = value => {
+  if (value === 'administration') return 'Administration'
+  if (value === 'en_ligne') return 'En ligne'
+  return PAYMENT_METHODS.find(method => method.value === value)?.label || value || '-'
+}
 
 const escapeHtml = value => String(value ?? '')
   .replace(/&/g, '&amp;')
@@ -746,7 +758,7 @@ function PageCharges({ toast }) {
   const [loading, setLoading] = useState(true)
   const [modal, setModal] = useState(null)
   const [settingsModal, setSettingsModal] = useState(false)
-  const [paiementForm, setPaiementForm] = useState({ montant: '', note: '' })
+  const [paiementForm, setPaiementForm] = useState({ montant: '', methode: 'cash' })
   const [receipt, setReceipt] = useState(null)
   const [chargeSearch, setChargeSearch] = useState('')
   const [settingsForm, setSettingsForm] = useState({ montant: '15000' })
@@ -792,10 +804,9 @@ function PageCharges({ toast }) {
     { label: 'Unite', value: data.charge.unite || '-' },
     { label: 'Designation', value: data.charge.designation },
     { label: 'Date de paiement', value: fmtFull(data.date) },
-    { label: 'Methode', value: 'Administration' },
+    { label: 'Methode', value: paymentMethodLabel(data.methode) },
     { label: 'Montant paye', value: fmtDA(data.montant), bold: true },
     { label: 'Reste a payer', value: fmtDA(data.montant_restant) },
-    ...(data.note ? [{ label: 'Note', value: data.note }] : []),
     { type: 'space', size: 18 },
     { value: 'Recu genere automatiquement apres enregistrement du paiement.', size: 9 },
   ]
@@ -811,9 +822,9 @@ function PageCharges({ toast }) {
         <div><span class="label">Resident</span>${escapeHtml(data.charge.resident_nom)}</div>
         <div><span class="label">Unite</span>${escapeHtml(data.charge.unite || '-')}</div>
         <div><span class="label">Designation</span>${escapeHtml(data.charge.designation)}</div>
+        <div><span class="label">Methode</span>${escapeHtml(paymentMethodLabel(data.methode))}</div>
         <div><span class="label">Reste a payer</span>${escapeHtml(fmtDA(data.montant_restant))}</div>
       </div>
-      ${data.note ? `<div class="content"><strong>Note:</strong> ${escapeHtml(data.note)}</div>` : ''}
       <div class="footer">Recu genere depuis INNOVA - ${escapeHtml(COMPANY_NAME)}</div>
     `)
   }
@@ -834,18 +845,22 @@ function PageCharges({ toast }) {
       toast('Veuillez entrer un montant valide')
       return
     }
+    if (!PAYMENT_METHODS.some(method => method.value === paiementForm.methode)) {
+      toast('Veuillez choisir une methode de paiement')
+      return
+    }
     setEnvoi(true)
     try {
       const charge = modal
       const montant = parseFloat(paiementForm.montant)
       const res = await post(`/charges/${charge.id}/payer-admin`, {
         montant,
-        note: paiementForm.note
+        methode: paiementForm.methode
       })
       const receiptData = {
         charge,
         montant,
-        note: paiementForm.note,
+        methode: res.methode || paiementForm.methode,
         reference: res.reference || `PAY-${charge.id}-${Date.now()}`,
         montant_restant: res.montant_restant ?? Math.max((charge.montant_restant || 0) - montant, 0),
         date: new Date().toISOString(),
@@ -853,7 +868,7 @@ function PageCharges({ toast }) {
       toast('Paiement enregistré avec succès !')
       setReceipt(receiptData)
       setModal(null)
-      setPaiementForm({ montant: '', note: '' })
+      setPaiementForm({ montant: '', methode: 'cash' })
       charger()
     } catch (err) { toast(err.message) } finally { setEnvoi(false) }
   }
@@ -925,7 +940,7 @@ function PageCharges({ toast }) {
                     <td><span style={{ background: getStatut(c.statut).c + '20', color: getStatut(c.statut).c, padding: '4px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600 }}>{getStatut(c.statut).l}</span></td>
                     <td>
                       {c.statut !== 'paye' && (
-                        <button className="btn btn-green" style={{ padding: '6px 12px', fontSize: 11 }} onClick={() => { setModal(c); setPaiementForm({ montant: c.montant_restant.toString(), note: '' }) }}>
+                        <button className="btn btn-green" style={{ padding: '6px 12px', fontSize: 11 }} onClick={() => { setModal(c); setPaiementForm({ montant: c.montant_restant.toString(), methode: 'cash' }) }}>
                           💳 Enregistrer paiement
                         </button>
                       )}
@@ -959,13 +974,27 @@ function PageCharges({ toast }) {
               />
             </div>
             <div className="form-group">
-              <label className="form-label">Note (optionnelle)</label>
-              <input 
-                className="form-input" 
-                value={paiementForm.note}
-                onChange={e => setPaiementForm(f => ({ ...f, note: e.target.value }))}
-                placeholder="Ex: Paiement en espèces"
-              />
+              <label className="form-label">Methode de paiement *</label>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                {PAYMENT_METHODS.map(method => (
+                  <label key={method.value} style={{
+                    display: 'flex', alignItems: 'center', gap: 10, padding: '11px 12px',
+                    borderRadius: 10, border: `1.5px solid ${paiementForm.methode === method.value ? '#10B981' : 'var(--border)'}`,
+                    background: paiementForm.methode === method.value ? '#E6F9F0' : '#fff',
+                    cursor: 'pointer', fontSize: 13, fontWeight: 600, color: 'var(--text)'
+                  }}>
+                    <input
+                      type="radio"
+                      name="payment-method"
+                      value={method.value}
+                      checked={paiementForm.methode === method.value}
+                      onChange={e => setPaiementForm(f => ({ ...f, methode: e.target.value }))}
+                      required
+                    />
+                    {method.label}
+                  </label>
+                ))}
+              </div>
             </div>
             <div className="modal-btns">
               <button type="button" className="btn btn-outline" onClick={() => setModal(null)}>Annuler</button>
@@ -989,7 +1018,7 @@ function PageCharges({ toast }) {
               ['Montant paye', fmtDA(receipt.montant)],
               ['Reste a payer', fmtDA(receipt.montant_restant)],
               ['Date', fmtFull(receipt.date)],
-              ['Methode', 'Administration'],
+              ['Methode', paymentMethodLabel(receipt.methode)],
             ].map(([label, value]) => (
               <div key={label} style={{ padding: '12px 14px', borderRadius: 10, background: '#fff', border: '1px solid var(--border)' }}>
                 <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 4 }}>{label}</div>
@@ -999,7 +1028,6 @@ function PageCharges({ toast }) {
           </div>
           <div style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.6, marginBottom: 18 }}>
             {receipt.charge.designation}
-            {receipt.note && <><br />Note: {receipt.note}</>}
           </div>
           <div className="modal-btns">
             <button type="button" className="btn btn-outline" onClick={() => imprimerRecu(receipt)}>Generer recu imprimable</button>
@@ -2113,7 +2141,7 @@ export default function AdminApp() {
                               <td style={{ maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.designation}</td>
                               <td style={{ fontWeight: 600, color: 'var(--green)' }}>{fmtDA(p.montant)}</td>
                               <td style={{ fontSize: 10, color: 'var(--hint)' }}>{p.reference || '—'}</td>
-                              <td><span className="pill pill-blue">{p.methode === 'administration' ? 'Admin' : 'En ligne'}</span></td>
+                              <td><span className="pill pill-blue">{paymentMethodLabel(p.methode)}</span></td>
                             </tr>
                           ))}
                         </tbody>
