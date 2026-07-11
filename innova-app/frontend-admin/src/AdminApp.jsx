@@ -13,6 +13,152 @@ const get = p => api('GET', p)
 const post = (p, b) => api('POST', p, b)
 const del = p => api('DELETE', p)
 
+const COMPANY_NAME = 'BENZAAMIA PROMOTION'
+const A4_WIDTH = 595.28
+const A4_HEIGHT = 841.89
+const A4_MARGIN = 50
+
+const escapeHtml = value => String(value ?? '')
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;')
+  .replace(/'/g, '&#39;')
+
+const plainText = value => String(value ?? '')
+  .normalize('NFKD')
+  .replace(/[\u0300-\u036f]/g, '')
+  .replace(/[^\x20-\x7E\n]/g, ' ')
+  .replace(/[ \t]+/g, ' ')
+  .trim()
+
+const pdfEscape = value => plainText(value)
+  .replace(/\\/g, '\\\\')
+  .replace(/\(/g, '\\(')
+  .replace(/\)/g, '\\)')
+
+const fileSafe = value => plainText(value).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'document'
+
+const wrapText = (value, max = 82) => {
+  const words = plainText(value).split(/\s+/).filter(Boolean)
+  const lines = []
+  let line = ''
+  words.forEach(word => {
+    if (word.length > max) {
+      if (line) lines.push(line)
+      for (let i = 0; i < word.length; i += max) lines.push(word.slice(i, i + max))
+      line = ''
+      return
+    }
+    const next = line ? `${line} ${word}` : word
+    if (next.length > max) {
+      if (line) lines.push(line)
+      line = word
+    } else {
+      line = next
+    }
+  })
+  if (line) lines.push(line)
+  return lines.length ? lines : ['']
+}
+
+const buildPdfBlob = (title, blocks) => {
+  const pages = [[]]
+  let y = A4_HEIGHT - A4_MARGIN
+  const pushLine = (text = '', opts = {}) => {
+    const size = opts.size || 11
+    const gap = opts.gap ?? 6
+    const lineHeight = opts.lineHeight || Math.max(size + 5, 14)
+    const lines = opts.raw ? [text] : wrapText(text, opts.max || (size >= 16 ? 54 : 82))
+    lines.forEach(line => {
+      if (y < A4_MARGIN + lineHeight) {
+        pages.push([])
+        y = A4_HEIGHT - A4_MARGIN
+      }
+      pages[pages.length - 1].push({ text: line, y, size, bold: !!opts.bold })
+      y -= lineHeight
+    })
+    y -= gap
+  }
+
+  pushLine(COMPANY_NAME, { size: 10, bold: true, gap: 10, raw: true })
+  pushLine(title, { size: 18, bold: true, gap: 18 })
+  blocks.forEach(block => {
+    if (block.type === 'space') {
+      y -= block.size || 12
+    } else if (block.label) {
+      pushLine(`${block.label}: ${block.value ?? ''}`, { size: block.size || 11, bold: block.bold, gap: block.gap })
+    } else {
+      pushLine(block.value ?? '', { size: block.size || 11, bold: block.bold, gap: block.gap })
+    }
+  })
+
+  const pageContents = pages.map((lines, index) => {
+    const body = lines.map(line => {
+      const font = line.bold ? 'F2' : 'F1'
+      return `/${font} ${line.size} Tf\n1 0 0 1 ${A4_MARGIN} ${line.y.toFixed(2)} Tm\n(${pdfEscape(line.text)}) Tj`
+    }).join('\n')
+    const footer = `/F1 8 Tf\n1 0 0 1 ${A4_MARGIN} 28 Tm\n(${pdfEscape(`Page ${index + 1} / ${pages.length}`)}) Tj`
+    return `BT\n${body}\n${footer}\nET`
+  })
+
+  const objects = []
+  const add = value => {
+    objects.push(value)
+    return objects.length
+  }
+  const catalogRef = add('<< /Type /Catalog /Pages 2 0 R >>')
+  add('')
+  const fontRef = add('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>')
+  const boldFontRef = add('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>')
+  const contentRefs = pageContents.map(content => add(`<< /Length ${content.length} >>\nstream\n${content}\nendstream`))
+  const pageRefs = contentRefs.map(ref => add(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${A4_WIDTH} ${A4_HEIGHT}] /Resources << /Font << /F1 ${fontRef} 0 R /F2 ${boldFontRef} 0 R >> >> /Contents ${ref} 0 R >>`))
+  objects[1] = `<< /Type /Pages /Kids [${pageRefs.map(ref => `${ref} 0 R`).join(' ')}] /Count ${pageRefs.length} >>`
+
+  let pdf = '%PDF-1.4\n'
+  const offsets = [0]
+  objects.forEach((obj, index) => {
+    offsets.push(pdf.length)
+    pdf += `${index + 1} 0 obj\n${obj}\nendobj\n`
+  })
+  const xrefStart = pdf.length
+  pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`
+  offsets.slice(1).forEach(offset => { pdf += `${String(offset).padStart(10, '0')} 00000 n \n` })
+  pdf += `trailer\n<< /Size ${objects.length + 1} /Root ${catalogRef} 0 R >>\nstartxref\n${xrefStart}\n%%EOF`
+  const bytes = Uint8Array.from(pdf, ch => ch.charCodeAt(0))
+  return new Blob([bytes], { type: 'application/pdf' })
+}
+
+const downloadPdf = (filename, title, blocks) => {
+  const url = URL.createObjectURL(buildPdfBlob(title, blocks))
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename.endsWith('.pdf') ? filename : `${filename}.pdf`
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
+}
+
+const openPrintableDocument = (title, html) => {
+  const win = window.open('', '_blank', 'width=900,height=1100')
+  if (!win) return
+  win.document.write(`<!doctype html><html><head><title>${escapeHtml(title)}</title><style>
+    @page { size: A4; margin: 18mm; }
+    * { box-sizing: border-box; }
+    body { font-family: Arial, sans-serif; color: #151827; margin: 0; line-height: 1.55; }
+    .doc { min-height: 100vh; display: flex; flex-direction: column; }
+    .brand { font-size: 13px; font-weight: 700; letter-spacing: 1.4px; color: #C41E1E; text-transform: uppercase; }
+    h1 { margin: 18px 0 18px; font-size: 30px; text-transform: uppercase; letter-spacing: 0.8px; }
+    .meta { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 18px; padding: 14px 0; border-top: 1px solid #D7DCE5; border-bottom: 1px solid #D7DCE5; font-size: 13px; }
+    .label { color: #687083; font-weight: 700; text-transform: uppercase; font-size: 11px; display: block; margin-bottom: 2px; }
+    .content { margin-top: 28px; font-size: 17px; white-space: pre-wrap; }
+    .footer { margin-top: auto; padding-top: 40px; color: #687083; font-size: 11px; }
+    .receipt-total { font-size: 28px; font-weight: 800; color: #10B981; margin: 20px 0; }
+  </style></head><body><div class="doc">${html}</div><script>window.onload=()=>{window.focus();window.print()}</script></body></html>`)
+  win.document.close()
+}
+
 function LogoBatiments({ size = 24, stroke = '#fff' }) {
   return (
     <svg width={size} height={size} viewBox="0 0 64 64" fill="none">
@@ -102,7 +248,7 @@ function Modal({ titre, icone, onFermer, children, maxWidth = 480 }) {
   )
 }
 
-function AlerteCard({ a, onDel, onDelete }) {
+function AlerteCard({ a, onDel, onDelete, onPrintNotice, onDownloadNotice }) {
   const cfg = {
     danger:    { l: 'Urgence',      bg: '#FFF0F0', border: '#F49090', color: '#C41E1E', dot: '#E53E3E' },
     attention: { l: 'Attention',    bg: '#FFF8E6', border: '#F5C842', color: '#B07D00', dot: '#D97706' },
@@ -143,7 +289,13 @@ function AlerteCard({ a, onDel, onDelete }) {
             </div>
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 8, marginLeft: 12, flexShrink: 0 }}>
+        <div style={{ display: 'flex', gap: 8, marginLeft: 12, flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+          {onPrintNotice && (
+            <button onClick={onPrintNotice} title="Generer un avis imprimable" style={{ background: '#fff', border: '1px solid var(--border)', cursor: 'pointer', fontSize: 11, padding: '5px 8px', borderRadius: 6, fontWeight: 600, color: 'var(--text)' }}>Avis</button>
+          )}
+          {onDownloadNotice && (
+            <button onClick={onDownloadNotice} title="Exporter en PDF A4" style={{ background: '#fff', border: '1px solid var(--border)', cursor: 'pointer', fontSize: 11, padding: '5px 8px', borderRadius: 6, fontWeight: 600, color: 'var(--red)' }}>PDF A4</button>
+          )}
           {onDel && (
             <button onClick={onDel} title="Archiver" style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, padding: 4 }}>✓</button>
           )}
@@ -595,6 +747,7 @@ function PageCharges({ toast }) {
   const [modal, setModal] = useState(null)
   const [settingsModal, setSettingsModal] = useState(false)
   const [paiementForm, setPaiementForm] = useState({ montant: '', note: '' })
+  const [receipt, setReceipt] = useState(null)
   const [chargeSearch, setChargeSearch] = useState('')
   const [settingsForm, setSettingsForm] = useState({ montant: '15000' })
   const [activeTab, setActiveTab] = useState('actives')
@@ -632,6 +785,42 @@ function PageCharges({ toast }) {
   
   const statuts = { en_attente: { l: 'En attente', c: '#F59E0B' }, paye: { l: 'Payé', c: '#10B981' }, partiel: { l: 'Partiel', c: '#6366F1' }, }
   const getStatut = s => statuts[s] || statuts.en_attente
+
+  const receiptBlocks = data => [
+    { label: 'Reference', value: data.reference, bold: true },
+    { label: 'Resident', value: data.charge.resident_nom },
+    { label: 'Unite', value: data.charge.unite || '-' },
+    { label: 'Designation', value: data.charge.designation },
+    { label: 'Date de paiement', value: fmtFull(data.date) },
+    { label: 'Methode', value: 'Administration' },
+    { label: 'Montant paye', value: fmtDA(data.montant), bold: true },
+    { label: 'Reste a payer', value: fmtDA(data.montant_restant) },
+    ...(data.note ? [{ label: 'Note', value: data.note }] : []),
+    { type: 'space', size: 18 },
+    { value: 'Recu genere automatiquement apres enregistrement du paiement.', size: 9 },
+  ]
+
+  const imprimerRecu = data => {
+    openPrintableDocument(`Recu - ${data.reference}`, `
+      <div class="brand">${escapeHtml(COMPANY_NAME)}</div>
+      <h1>Recu de paiement</h1>
+      <div class="receipt-total">${escapeHtml(fmtDA(data.montant))}</div>
+      <div class="meta">
+        <div><span class="label">Reference</span>${escapeHtml(data.reference)}</div>
+        <div><span class="label">Date</span>${escapeHtml(fmtFull(data.date))}</div>
+        <div><span class="label">Resident</span>${escapeHtml(data.charge.resident_nom)}</div>
+        <div><span class="label">Unite</span>${escapeHtml(data.charge.unite || '-')}</div>
+        <div><span class="label">Designation</span>${escapeHtml(data.charge.designation)}</div>
+        <div><span class="label">Reste a payer</span>${escapeHtml(fmtDA(data.montant_restant))}</div>
+      </div>
+      ${data.note ? `<div class="content"><strong>Note:</strong> ${escapeHtml(data.note)}</div>` : ''}
+      <div class="footer">Recu genere depuis INNOVA - ${escapeHtml(COMPANY_NAME)}</div>
+    `)
+  }
+
+  const telechargerRecuPdf = data => {
+    downloadPdf(`recu-${fileSafe(data.reference)}.pdf`, 'Recu de paiement', receiptBlocks(data))
+  }
   
   const chargesActives = charges.filter(c => c.statut !== 'paye')
   const chargesHistory = charges.filter(c => c.statut === 'paye')
@@ -647,11 +836,22 @@ function PageCharges({ toast }) {
     }
     setEnvoi(true)
     try {
-      await post(`/charges/${modal.id}/payer-admin`, {
-        montant: parseFloat(paiementForm.montant),
+      const charge = modal
+      const montant = parseFloat(paiementForm.montant)
+      const res = await post(`/charges/${charge.id}/payer-admin`, {
+        montant,
         note: paiementForm.note
       })
+      const receiptData = {
+        charge,
+        montant,
+        note: paiementForm.note,
+        reference: res.reference || `PAY-${charge.id}-${Date.now()}`,
+        montant_restant: res.montant_restant ?? Math.max((charge.montant_restant || 0) - montant, 0),
+        date: new Date().toISOString(),
+      }
       toast('Paiement enregistré avec succès !')
+      setReceipt(receiptData)
       setModal(null)
       setPaiementForm({ montant: '', note: '' })
       charger()
@@ -774,6 +974,37 @@ function PageCharges({ toast }) {
               </button>
             </div>
           </form>
+        </Modal>
+      )}
+      {receipt && (
+        <Modal titre="Recu genere" icone="📄" onFermer={() => setReceipt(null)}>
+          <div style={{ background: 'var(--bg)', borderRadius: 12, padding: 16, marginBottom: 16, border: '1px solid var(--border)' }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 6 }}>Reference</div>
+            <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--text)' }}>{receipt.reference}</div>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+            {[
+              ['Resident', receipt.charge.resident_nom],
+              ['Unite', receipt.charge.unite || '-'],
+              ['Montant paye', fmtDA(receipt.montant)],
+              ['Reste a payer', fmtDA(receipt.montant_restant)],
+              ['Date', fmtFull(receipt.date)],
+              ['Methode', 'Administration'],
+            ].map(([label, value]) => (
+              <div key={label} style={{ padding: '12px 14px', borderRadius: 10, background: '#fff', border: '1px solid var(--border)' }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 4 }}>{label}</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{value}</div>
+              </div>
+            ))}
+          </div>
+          <div style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.6, marginBottom: 18 }}>
+            {receipt.charge.designation}
+            {receipt.note && <><br />Note: {receipt.note}</>}
+          </div>
+          <div className="modal-btns">
+            <button type="button" className="btn btn-outline" onClick={() => imprimerRecu(receipt)}>Generer recu imprimable</button>
+            <button type="button" className="btn btn-green" style={{ flex: 2 }} onClick={() => telechargerRecuPdf(receipt)}>Telecharger PDF</button>
+          </div>
         </Modal>
       )}
       {settingsModal && (
@@ -1112,6 +1343,45 @@ function PageAlertes({ toast }) {
       charger()
     } catch (err) { toast(err.message) }
   }
+
+  const residenceLabel = residenceId => {
+    if (!residenceId) return 'Toutes les residences'
+    return residences.find(r => String(r.id) === String(residenceId))?.nom || `Residence ${residenceId}`
+  }
+
+  const alertTypeLabel = value => alertTypes.find(t => t.value === value)?.label || 'Information'
+
+  const noticeBlocks = a => [
+    { label: 'Titre', value: a.titre, bold: true },
+    { label: 'Type', value: alertTypeLabel(a.type_alerte) },
+    { label: 'Residence', value: residenceLabel(a.residence_id) },
+    { label: 'Date de creation', value: fmtFull(a.date_creation) },
+    ...(a.date_publication ? [{ label: 'Date de publication', value: fmtFull(a.date_publication) }] : []),
+    { type: 'space', size: 8 },
+    { value: 'Message', bold: true, size: 12 },
+    { value: a.contenu, size: 12, gap: 10 },
+    { type: 'space', size: 18 },
+    { value: 'Cet avis est genere depuis le tableau de bord INNOVA.', size: 9 },
+  ]
+
+  const genererAvis = a => {
+    openPrintableDocument(`Avis - ${a.titre}`, `
+      <div class="brand">${escapeHtml(COMPANY_NAME)}</div>
+      <h1>Avis aux residents</h1>
+      <div class="meta">
+        <div><span class="label">Titre</span>${escapeHtml(a.titre)}</div>
+        <div><span class="label">Type</span>${escapeHtml(alertTypeLabel(a.type_alerte))}</div>
+        <div><span class="label">Residence</span>${escapeHtml(residenceLabel(a.residence_id))}</div>
+        <div><span class="label">Date</span>${escapeHtml(fmtFull(a.date_publication || a.date_creation))}</div>
+      </div>
+      <div class="content">${escapeHtml(a.contenu)}</div>
+      <div class="footer">Avis genere depuis INNOVA - ${escapeHtml(fmtFull(new Date().toISOString()))}</div>
+    `)
+  }
+
+  const exporterAvisPdf = a => {
+    downloadPdf(`avis-${fileSafe(a.titre)}.pdf`, 'Avis aux residents', noticeBlocks(a))
+  }
   
   if (loading) return <Spinner />
   return (
@@ -1152,7 +1422,7 @@ function PageAlertes({ toast }) {
         alertes.length === 0 ? <div style={{ padding: 40, textAlign: 'center', color: 'var(--muted)' }}>Aucune alerte active</div> : (
           <div style={{ display: 'grid', gap: 12 }}>
             {alertes.map(a => (
-              <AlerteCard key={a.id} a={a} onDel={() => archiver(a.id)} onDelete={() => supprimer(a.id)} />
+              <AlerteCard key={a.id} a={a} onDel={() => archiver(a.id)} onDelete={() => supprimer(a.id)} onPrintNotice={() => genererAvis(a)} onDownloadNotice={() => exporterAvisPdf(a)} />
             ))}
           </div>
         )
@@ -1160,7 +1430,7 @@ function PageAlertes({ toast }) {
         alertesHistory.length === 0 ? <div style={{ padding: 40, textAlign: 'center', color: 'var(--muted)' }}>Aucun historique</div> : (
           <div style={{ display: 'grid', gap: 12, opacity: 0.7 }}>
             {alertesHistory.map(a => (
-              <AlerteCard key={a.id} a={a} onDelete={() => supprimer(a.id)} />
+              <AlerteCard key={a.id} a={a} onDelete={() => supprimer(a.id)} onPrintNotice={() => genererAvis(a)} onDownloadNotice={() => exporterAvisPdf(a)} />
             ))}
           </div>
         )
