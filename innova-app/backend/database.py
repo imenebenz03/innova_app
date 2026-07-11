@@ -694,7 +694,7 @@ class ChargeDB:
         conn.execute("UPDATE charges SET montant_restant=?,statut=?,date_paiement=CURRENT_TIMESTAMP WHERE id=?",
                      (nouveau_restant, statut, charge_id))
         conn.execute("INSERT INTO paiements (charge_id,resident_id,montant,methode,reference,note) VALUES (?,?,?,?,?,?)",
-                     (charge_id, charge["resident_id"], montant, methode, ref, note))
+                     (charge_id, charge["resident_id"], montant, methode, ref, ""))
         payment_id = conn.execute("SELECT LASTVAL()").fetchone()[0]
         conn.execute("INSERT INTO notifications (resident_id,titre,contenu,type_notif) VALUES (?,?,?,?)",
                      (charge["resident_id"], "Paiement enregistre par l'administration",

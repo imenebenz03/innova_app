@@ -384,6 +384,73 @@ function Spinner() {
   )
 }
 
+function StatGrid({ items, columns = 4 }) {
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: `repeat(${columns},1fr)`, gap: 14, marginBottom: 20 }}>
+      {items.map(({ label, val, color = '#1A6BB5', bg = '#EBF3FF' }) => (
+        <div key={label} style={{ background: '#fff', borderRadius: 14, padding: '16px 18px', border: '1px solid var(--border)' }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 8 }}>{label}</div>
+          <div style={{ fontSize: 24, fontWeight: 800, color, letterSpacing: -0.4 }}>{val}</div>
+          <div style={{ height: 5, background: bg, borderRadius: 6, marginTop: 12 }}>
+            <div style={{ height: '100%', width: '52%', background: color, borderRadius: 6, opacity: 0.75 }} />
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function BarChart({ title, data = [], labelKey = 'label', valueKey = 'value', color = '#C41E1E', formatter = v => v }) {
+  const max = Math.max(...data.map(item => Number(item[valueKey]) || 0), 1)
+  return (
+    <div className="card" style={{ padding: 20 }}>
+      <h3 style={{ margin: '0 0 16px', fontSize: 14, fontWeight: 700 }}>{title}</h3>
+      {data.length === 0 ? (
+        <div style={{ color: 'var(--muted)', fontSize: 13 }}>Aucune donnée</div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {data.map((item, idx) => {
+            const value = Number(item[valueKey]) || 0
+            return (
+              <div key={`${item[labelKey]}-${idx}`}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 5 }}>
+                  <span style={{ color: 'var(--text)', fontWeight: 600 }}>{item[labelKey] || '—'}</span>
+                  <span style={{ color: 'var(--muted)' }}>{formatter(value)}</span>
+                </div>
+                <div style={{ height: 9, background: 'var(--bg)', borderRadius: 10, overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: `${Math.max((value / max) * 100, 4)}%`, background: color, borderRadius: 10 }} />
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ColumnChart({ title, data = [], labelKey = 'label', valueKey = 'value', color = '#1A6BB5', formatter = v => v }) {
+  const max = Math.max(...data.map(item => Number(item[valueKey]) || 0), 1)
+  return (
+    <div className="card" style={{ padding: 20 }}>
+      <h3 style={{ margin: '0 0 16px', fontSize: 14, fontWeight: 700 }}>{title}</h3>
+      <div style={{ height: 150, display: 'flex', alignItems: 'flex-end', gap: 10, borderBottom: '1px solid var(--border)', paddingTop: 14 }}>
+        {data.length === 0 ? (
+          <div style={{ alignSelf: 'center', color: 'var(--muted)', fontSize: 13 }}>Aucune donnée</div>
+        ) : data.map((item, idx) => {
+          const value = Number(item[valueKey]) || 0
+          return (
+            <div key={`${item[labelKey]}-${idx}`} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+              <div title={formatter(value)} style={{ width: '100%', maxWidth: 38, height: Math.max((value / max) * 110, 5), background: color, borderRadius: '6px 6px 0 0' }} />
+              <span style={{ fontSize: 10, color: 'var(--muted)', whiteSpace: 'nowrap' }}>{String(item[labelKey] || '').slice(-5)}</span>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 function PageAccueil({ setPage }) {
   const [stats, setStats] = useState({ residents: 0, charges_en_attente: 0, alertes: 0, requetes: 0, total_du: 0 })
   const [loading, setLoading] = useState(true)
@@ -514,21 +581,28 @@ function PageOperations({ setPage }) {
   }
   return (
     <div>
-      <div className="page-title">Tableau de bord — Gestion</div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 14, marginBottom: 20 }}>
-        {[
-          { label: 'Requêtes ouvertes', val: data.requetes_ouvertes || 0, color: '#C41E1E', bg: '#FFECEC' },
-          { label: 'En cours', val: data.requetes_en_cours || 0, color: '#1A6BB5', bg: '#EBF3FF' },
-          { label: 'Résolues', val: data.requetes_resolues || 0, color: '#1A7E53', bg: '#E6F9F0' },
-          { label: 'Taux occupation', val: `${data.taux_occupation || 0}%`, color: '#7B5EA7', bg: '#F5F0FF' },
-        ].map(({ label, val, color, bg }) => (
-          <div key={label} style={{ background: '#fff', borderRadius: 14, padding: '16px 18px', border: '1px solid var(--border)' }}>
-            <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 8 }}>{label}</div>
-            <div style={{ fontSize: 24, fontWeight: 800, color, letterSpacing: -0.5 }}>{val}</div>
-          </div>
-        ))}
+      <div className="page-title">Analytics — Gestion</div>
+      <StatGrid items={[
+        { label: 'Pending requests', val: data.requetes_ouvertes || 0, color: '#C41E1E', bg: '#FFECEC' },
+        { label: 'Requests in progress', val: data.requetes_en_cours || 0, color: '#1A6BB5', bg: '#EBF3FF' },
+        { label: 'Completed requests', val: data.requetes_resolues || 0, color: '#1A7E53', bg: '#E6F9F0' },
+        { label: 'Active announcements', val: data.alertes_actives || 0, color: '#7B5EA7', bg: '#F5F0FF' },
+      ]} />
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18, marginBottom: 18 }}>
+        <BarChart title="Requests by status" data={[
+          { label: 'Pending', value: data.requetes_ouvertes || 0 },
+          { label: 'In progress', value: data.requetes_en_cours || 0 },
+          { label: 'Completed', value: data.requetes_resolues || 0 },
+        ]} color="#1A6BB5" />
+        <BarChart title="Announcement statistics" data={[
+          { label: 'Active', value: data.alertes_actives || 0 },
+          { label: 'Archived', value: data.alertes_archivees || 0 },
+          { label: 'Pinned', value: data.alertes_epinglees || 0 },
+          { label: 'Total', value: data.alertes_total || 0 },
+        ]} color="#7B5EA7" />
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18 }}>
+        <BarChart title="Announcements by type" data={(data.alertes_par_type || []).map(a => ({ label: alertCfg[a.type_alerte]?.l || a.type_alerte, value: a.count }))} color="#B07D00" />
         <div className="card" style={{ padding: 0 }}>
           <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontSize: 15, fontWeight: 700 }}>Dernières alertes</span>
@@ -551,6 +625,8 @@ function PageOperations({ setPage }) {
             </div>
           )}
         </div>
+      </div>
+      <div style={{ marginTop: 18 }}>
         <div className="card" style={{ padding: 0 }}>
           <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontSize: 15, fontWeight: 700 }}>Requêtes en attente</span>
@@ -581,35 +657,21 @@ function PageFinance() {
   useEffect(() => { get('/dashboard/finance').then(setData).catch(() => {}).finally(() => setLoading(false)) }, [])
   if (loading) return <Spinner />
   if (!data) return <div className="card" style={{ padding: 40, textAlign: 'center', color: 'var(--muted)' }}>Erreur de chargement</div>
-  const maxChart = Math.max(...(data.mensuel || []).map(m => m.total || 0), 1)
   return (
     <div>
-      <div className="page-title">Tableau de bord — Finance</div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 14, marginBottom: 20 }}>
-        {[
-          { label: 'Total facturé', val: data.total_facture ? fmtDA(data.total_facture) : '—', color: '#1A6BB5', bg: '#EBF3FF' },
-          { label: 'Total collecté', val: data.total_collecte ? fmtDA(data.total_collecte) : '—', color: '#1A7E53', bg: '#E6F9F0' },
-          { label: 'Taux de collecte', val: `${data.taux_collecte || 0}%`, color: '#B07D00', bg: '#FFF8E6' },
-          { label: 'Impayés (total)', val: data.impayes_total ? fmtDA(data.impayes_total) : '—', color: '#C41E1E', bg: '#FFECEC' },
-        ].map(({ label, val, color, bg }) => (
-          <div key={label} style={{ background: '#fff', borderRadius: 14, padding: '16px 18px', border: '1px solid var(--border)' }}>
-            <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 8 }}>{label}</div>
-            <div style={{ fontSize: 24, fontWeight: 800, color, letterSpacing: -0.5 }}>{val}</div>
-          </div>
-        ))}
-      </div>
+      <div className="page-title">Analytics — Finance</div>
+      <StatGrid items={[
+        { label: 'Total charges', val: fmtDA(data.total_facture || 0), color: '#1A6BB5', bg: '#EBF3FF' },
+        { label: 'Already paid', val: fmtDA(data.total_collecte || 0), color: '#1A7E53', bg: '#E6F9F0' },
+        { label: 'Remaining amount', val: fmtDA(data.impayes_total || 0), color: '#C41E1E', bg: '#FFECEC' },
+        { label: 'Collection rate', val: `${data.taux_collecte || 0}%`, color: '#B07D00', bg: '#FFF8E6' },
+      ]} />
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18 }}>
-        <div className="card" style={{ padding: 16 }}>
-          <h3 style={{ margin: '0 0 12px', fontSize: 14, fontWeight: 600 }}>Paiements mensuels (6 mois)</h3>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', height: 120 }}>
-            {(data.mensuel || []).map(m => (
-              <div key={m.mois} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-                <div style={{ width: '100%', background: '#1A6BB5', borderRadius: '4px 4px 0 0', height: Math.max((m.total / maxChart) * 100, 4), minHeight: 4 }} />
-                <span style={{ fontSize: 10, color: 'var(--muted)' }}>{m.mois?.slice(5)}</span>
-              </div>
-            ))}
-          </div>
-        </div>
+        <ColumnChart title="Paid amount by month" data={data.mensuel || []} labelKey="mois" valueKey="total" color="#1A6BB5" formatter={fmtDA} />
+        <BarChart title="Compound generating the most fees" data={data.compound_fees || []} labelKey="nom_complet" valueKey="total" color="#7B5EA7" formatter={fmtDA} />
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: 18, marginTop: 18 }}>
+        <BarChart title="Bad payers" data={data.impayes || []} labelKey="resident_nom" valueKey="montant_restant" color="#C41E1E" formatter={fmtDA} />
         <div className="card" style={{ padding: 16 }}>
           <h3 style={{ margin: '0 0 12px', fontSize: 14, fontWeight: 600 }}>Derniers paiements</h3>
           {(data.derniers_paiements || []).length === 0 ? (
@@ -622,27 +684,6 @@ function PageFinance() {
                   <tr key={p.id} style={{ borderTop: '1px solid var(--border)' }}>
                     <td style={{ padding: '6px 0' }}>{p.resident_nom}</td>
                     <td style={{ padding: '6px 0', textAlign: 'right', fontWeight: 600, color: '#1A7E53' }}>{fmtDA(p.montant)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-      </div>
-      <div style={{ marginTop: 18 }}>
-        <div className="card" style={{ padding: 16 }}>
-          <h3 style={{ margin: '0 0 12px', fontSize: 14, fontWeight: 600 }}>Charges en retard</h3>
-          {(data.impayes || []).length === 0 ? (
-            <div style={{ color: 'var(--muted)', fontSize: 13 }}>Aucune charge en retard</div>
-          ) : (
-            <table style={{ width: '100%', fontSize: 12 }}>
-              <thead><tr><th style={{ textAlign: 'left' }}>Résident</th><th style={{ textAlign: 'left' }}>Unité</th><th style={{ textAlign: 'right' }}>Dû</th></tr></thead>
-              <tbody>
-                {data.impayes.map(i => (
-                  <tr key={i.id} style={{ borderTop: '1px solid var(--border)' }}>
-                    <td style={{ padding: '6px 0' }}>{i.resident_nom}</td>
-                    <td style={{ padding: '6px 0' }}>{i.unite}</td>
-                    <td style={{ padding: '6px 0', textAlign: 'right', fontWeight: 600, color: '#C41E1E' }}>{fmtDA(i.montant_restant)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -1899,134 +1940,55 @@ export default function AdminApp() {
     if (loading) return <Spinner />
     if (!data) return <div className="card" style={{ padding: 40, textAlign: 'center', color: 'var(--muted)' }}>Erreur de chargement</div>
 
-    const maxMensuel = Math.max(...(data.mensuel?.map(m => m.total) || [0]), 1)
-    const maxImpayes = Math.max(...(data.impayes?.map(i => i.total) || [0]), 1)
-    const maxMsg     = Math.max(...(data.messages_7j?.map(m => m.count) || [0]), 1)
-    const reqTotal   = data.requetes?.reduce((s, r) => s + r.count, 0) || 1
-
     return (
       <div>
-        <div className="page-title">Analytiques</div>
+        <div className="page-title">Analytics</div>
 
-        {/* KPI cards */}
-        <div className="stats-row">
-          <div className="stat-card" style={{ background: '#EBF3FF' }}>
-            <div className="stat-val">{data.taux_collecte}%</div>
-            <div className="stat-lbl">Taux de collecte</div>
-          </div>
-          <div className="stat-card" style={{ background: '#E6F9F0' }}>
-            <div className="stat-val">{fmtDA(data.total_percu)}</div>
-            <div className="stat-lbl">Total perçu</div>
-          </div>
-          <div className="stat-card" style={{ background: '#FFF8E6' }}>
-            <div className="stat-val">{fmtDA(data.total_facture - data.total_percu)}</div>
-            <div className="stat-lbl">Restant à percevoir</div>
-          </div>
-          <div className="stat-card" style={{ background: '#FFECEC' }}>
-            <div className="stat-val">{data.mauvais_payeurs?.length || 0}</div>
-            <div className="stat-lbl">Mauvais payeurs (top)</div>
-          </div>
-          <div className="stat-card" style={{ background: '#F5F0FF' }}>
-            <div className="stat-val">{data.total_residents}</div>
-            <div className="stat-lbl">Résidents</div>
-          </div>
-          <div className="stat-card" style={{ background: '#E0F7FA' }}>
-            <div className="stat-val">{data.requetes_ouvertes}</div>
-            <div className="stat-lbl">Requêtes ouvertes</div>
-          </div>
+        <div className="sec">Financial</div>
+        <StatGrid items={[
+          { label: 'Total charges', val: fmtDA(data.total_facture || 0), color: '#1A6BB5', bg: '#EBF3FF' },
+          { label: 'Already paid', val: fmtDA(data.total_percu || 0), color: '#1A7E53', bg: '#E6F9F0' },
+          { label: 'Remaining amount', val: fmtDA(data.remaining || 0), color: '#C41E1E', bg: '#FFECEC' },
+          { label: 'Collection rate', val: `${data.taux_collecte || 0}%`, color: '#B07D00', bg: '#FFF8E6' },
+        ]} />
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18, marginBottom: 24 }}>
+          <ColumnChart title="Paid amount by month" data={data.mensuel || []} labelKey="mois" valueKey="total" color="#1A6BB5" formatter={fmtDA} />
+          <BarChart title="Compound generating the most fees" data={data.compound_fees || []} labelKey="nom_complet" valueKey="total" color="#7B5EA7" formatter={fmtDA} />
+          <BarChart title="Bad payers" data={data.mauvais_payeurs || []} labelKey="nom" valueKey="total" color="#C41E1E" formatter={fmtDA} />
+          <BarChart title="Remaining amount by compound" data={data.impayes || []} labelKey="nom_complet" valueKey="total" color="#B07D00" formatter={fmtDA} />
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginTop: 20 }}>
-          {/* Monthly payments chart */}
-          <div className="card" style={{ padding: 20 }}>
-            <h3 style={{ margin: '0 0 16px', fontSize: 14, fontWeight: 600 }}>Paiements mensuels</h3>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', height: 140 }}>
-              {(data.mensuel || []).map(m => (
-                <div key={m.mois} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-                  <div style={{ width: '100%', background: '#1A6BB5', borderRadius: '4px 4px 0 0', height: Math.max((m.total / maxMensuel) * 120, 4), minHeight: 4, transition: 'height 0.3s' }} />
-                  <span style={{ fontSize: 10, color: 'var(--muted)', whiteSpace: 'nowrap' }}>{m.mois?.slice(5)}</span>
-                </div>
-              ))}
-            </div>
-          </div>
+        <div className="sec">Residents</div>
+        <StatGrid items={[
+          { label: 'Total residents', val: data.total_residents || 0, color: '#1A6BB5', bg: '#EBF3FF' },
+          { label: 'Occupied apartments', val: data.occupied_apartments || 0, color: '#1A7E53', bg: '#E6F9F0' },
+          { label: 'Vacant apartments', val: data.vacant_apartments || 0, color: '#C41E1E', bg: '#FFECEC' },
+          { label: 'Total apartments', val: data.total_apartments || 0, color: '#7B5EA7', bg: '#F5F0FF' },
+        ]} />
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18, marginBottom: 24 }}>
+          <BarChart title="Occupied apartments by compound" data={data.occupied_by_compound || []} labelKey="nom_complet" valueKey="count" color="#1A7E53" />
+          <BarChart title="Messages in the last 7 days" data={data.messages_7j || []} labelKey="jour" valueKey="count" color="#7B5EA7" />
+        </div>
 
-          {/* Unpaid by residence */}
-          <div className="card" style={{ padding: 20 }}>
-            <h3 style={{ margin: '0 0 16px', fontSize: 14, fontWeight: 600 }}>Impayés par résidence</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {(data.impayes || []).map(i => (
-                <div key={i.nom_complet}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 4 }}>
-                    <span>{i.nom_complet}</span>
-                    <span style={{ fontWeight: 600 }}>{fmtDA(i.total)}</span>
-                  </div>
-                  <div style={{ background: 'var(--border)', borderRadius: 6, height: 10, overflow: 'hidden' }}>
-                    <div style={{ width: `${(i.total / maxImpayes) * 100}%`, height: '100%', background: '#C41E1E', borderRadius: 6, transition: 'width 0.3s' }} />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Requests by status */}
-          <div className="card" style={{ padding: 20 }}>
-            <h3 style={{ margin: '0 0 16px', fontSize: 14, fontWeight: 600 }}>Requêtes par statut</h3>
-            <div style={{ display: 'flex', gap: 12 }}>
-              {(data.requetes || []).map(r => {
-                const colors = { en_attente: '#FF6B35', resolu: '#1A7E53', en_cours: '#1A6BB5' }
-                return (
-                  <div key={r.statut} style={{ flex: 1, textAlign: 'center' }}>
-                    <div style={{ fontSize: 28, fontWeight: 700, color: colors[r.statut] || 'var(--muted)' }}>{r.count}</div>
-                    <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>{r.statut === 'en_attente' ? 'En attente' : r.statut === 'resolu' ? 'Résolu' : r.statut}</div>
-                    <div style={{ background: 'var(--border)', borderRadius: 6, height: 8, marginTop: 8, overflow: 'hidden' }}>
-                      <div style={{ width: `${(r.count / reqTotal) * 100}%`, height: '100%', background: colors[r.statut] || '#999', borderRadius: 6 }} />
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-
-          {/* Top delinquents */}
-          <div className="card" style={{ padding: 20 }}>
-            <h3 style={{ margin: '0 0 16px', fontSize: 14, fontWeight: 600 }}>Mauvais payeurs</h3>
-            {(data.mauvais_payeurs || []).length === 0 ? (
-              <div style={{ color: 'var(--muted)', fontSize: 13 }}>Aucun impayé</div>
-            ) : (
-              <table style={{ width: '100%', fontSize: 12 }}>
-                <thead><tr><th style={{ textAlign: 'left', padding: '4px 0' }}>Résident</th><th style={{ textAlign: 'left', padding: '4px 0' }}>Unité</th><th style={{ textAlign: 'right', padding: '4px 0' }}>Dû</th></tr></thead>
-                <tbody>
-                  {(data.mauvais_payeurs || []).map((r, i) => (
-                    <tr key={i} style={{ borderTop: '1px solid var(--border)' }}>
-                      <td style={{ padding: '6px 0' }}>{r.nom}</td>
-                      <td style={{ padding: '6px 0' }}>{r.unite}</td>
-                      <td style={{ padding: '6px 0', textAlign: 'right', fontWeight: 600, color: '#C41E1E' }}>{fmtDA(r.total)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
-
-          {/* Messages last 7 days */}
-          <div className="card" style={{ padding: 20 }}>
-            <h3 style={{ margin: '0 0 16px', fontSize: 14, fontWeight: 600 }}>Messages (7 derniers jours)</h3>
-            <div style={{ display: 'flex', gap: 6, alignItems: 'flex-end', height: 100 }}>
-              {(data.messages_7j || []).map(m => (
-                <div key={m.jour} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-                  <div style={{ width: '100%', background: '#7B5EA7', borderRadius: '4px 4px 0 0', height: Math.max((m.count / maxMsg) * 80, 4), minHeight: 4 }} />
-                  <span style={{ fontSize: 9, color: 'var(--muted)', whiteSpace: 'nowrap' }}>{m.jour?.slice(5)}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Alert count */}
-          <div className="card" style={{ padding: 20 }}>
-            <h3 style={{ margin: '0 0 16px', fontSize: 14, fontWeight: 600 }}>Alertes actives</h3>
-            <div style={{ fontSize: 36, fontWeight: 700, color: '#C41E1E' }}>{data.total_alertes}</div>
-            <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>alertes en cours</div>
-          </div>
+        <div className="sec">Operations</div>
+        <StatGrid items={[
+          { label: 'Pending requests', val: data.requetes_ouvertes || 0, color: '#C41E1E', bg: '#FFECEC' },
+          { label: 'Requests in progress', val: data.requetes_en_cours || 0, color: '#1A6BB5', bg: '#EBF3FF' },
+          { label: 'Completed requests', val: data.requetes_resolues || 0, color: '#1A7E53', bg: '#E6F9F0' },
+          { label: 'Active announcements', val: data.total_alertes || 0, color: '#7B5EA7', bg: '#F5F0FF' },
+        ]} />
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18 }}>
+          <BarChart title="Requests by status" data={[
+            { label: 'Pending', value: data.requetes_ouvertes || 0 },
+            { label: 'In progress', value: data.requetes_en_cours || 0 },
+            { label: 'Completed', value: data.requetes_resolues || 0 },
+          ]} color="#1A6BB5" />
+          <BarChart title="Announcement statistics" data={[
+            { label: 'Active', value: data.total_alertes || 0 },
+            { label: 'Archived', value: data.alertes_archivees || 0 },
+            { label: 'Pinned', value: data.alertes_epinglees || 0 },
+            { label: 'Scheduled', value: data.alertes_programmees || 0 },
+          ]} color="#7B5EA7" />
         </div>
       </div>
     )

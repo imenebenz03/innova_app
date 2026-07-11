@@ -64,6 +64,7 @@ def handle_options(path):
 
 STAFF_ROLES = ("super_admin", "operations", "finance", "admin")
 PAYMENT_METHODS = {"cash", "bank_card", "bank_transfer", "cheque"}
+TOTAL_APARTMENTS = int(os.environ.get("INNOVA_TOTAL_APARTMENTS", "200"))
 
 def _normalize_role(role):
     return "super_admin" if role == "admin" else role
@@ -677,12 +678,11 @@ def sante():
 @role_requis("super_admin")
 def analytics():
     conn = get_connection()
-    # Collection rate
     total_facture = conn.execute("SELECT COALESCE(SUM(montant_total),0) FROM charges").fetchone()[0]
-    total_percu   = conn.execute("SELECT COALESCE(SUM(montant_total),0) FROM charges WHERE statut='paye'").fetchone()[0]
+    total_percu = conn.execute("SELECT COALESCE(SUM(montant),0) FROM paiements").fetchone()[0]
+    restant = conn.execute("SELECT COALESCE(SUM(montant_restant),0) FROM charges").fetchone()[0]
     taux = round(total_percu / total_facture * 100, 1) if total_facture else 0
 
-    # Monthly payments (last 6 months)
     mensuel = conn.execute("""
         SELECT TO_CHAR(date_paiement::timestamp, 'YYYY-MM') AS mois,
                SUM(montant) AS total
@@ -691,25 +691,37 @@ def analytics():
         GROUP BY mois ORDER BY mois
     """).fetchall()
     
-    # Requests by status
     requetes = conn.execute("SELECT statut, COUNT(*) AS count FROM requetes GROUP BY statut").fetchall()
     
-    # Unpaid by residence
     impayes = conn.execute("""
         SELECT res.nom_complet, COALESCE(SUM(c.montant_restant),0) AS total
         FROM charges c JOIN residents r ON c.resident_id=r.id
         JOIN residences res ON r.residence_id=res.id
-        WHERE c.statut != 'paye' GROUP BY res.nom_complet ORDER BY total DESC
+        WHERE c.statut != 'paye' AND (r.archived IS NULL OR r.archived=0) GROUP BY res.nom_complet ORDER BY total DESC
     """).fetchall()
 
-    # Top delinquent residents
     mauvais = conn.execute("""
         SELECT r.nom||' '||r.prenom AS nom, r.unite, SUM(c.montant_restant) AS total
         FROM charges c JOIN residents r ON c.resident_id=r.id
-        WHERE c.statut != 'paye' GROUP BY r.id ORDER BY total DESC LIMIT 5
+        WHERE c.statut != 'paye' AND (r.archived IS NULL OR r.archived=0) GROUP BY r.id ORDER BY total DESC LIMIT 5
     """).fetchall()
 
-    # Messages per day (last 7 days)
+    compound_fees = conn.execute("""
+        SELECT res.nom_complet, COALESCE(SUM(c.montant_total),0) AS total
+        FROM charges c JOIN residents r ON c.resident_id=r.id
+        JOIN residences res ON r.residence_id=res.id
+        WHERE (r.archived IS NULL OR r.archived=0)
+        GROUP BY res.nom_complet ORDER BY total DESC
+    """).fetchall()
+
+    occupied_total = conn.execute("SELECT COUNT(DISTINCT unite) FROM residents WHERE role='resident' AND (archived IS NULL OR archived=0)").fetchone()[0]
+    occupied_by_compound = conn.execute("""
+        SELECT res.nom_complet, COUNT(DISTINCT r.unite) AS count
+        FROM residents r JOIN residences res ON r.residence_id=res.id
+        WHERE r.role='resident' AND (r.archived IS NULL OR r.archived=0)
+        GROUP BY res.nom_complet ORDER BY count DESC
+    """).fetchall()
+
     messages = conn.execute("""
         SELECT date_envoi::date::text AS jour, COUNT(*) AS count
         FROM messages
@@ -717,24 +729,41 @@ def analytics():
         GROUP BY jour ORDER BY jour
     """).fetchall()
 
-    # Total counts
-    total_residents = conn.execute("SELECT COUNT(*) FROM residents WHERE role='resident'").fetchone()[0]
+    total_residents = conn.execute("SELECT COUNT(*) FROM residents WHERE role='resident' AND (archived IS NULL OR archived=0)").fetchone()[0]
     total_alertes   = conn.execute("SELECT COUNT(*) FROM alertes WHERE active=1").fetchone()[0]
+    alertes_archivees = conn.execute("SELECT COUNT(*) FROM alertes WHERE active=0").fetchone()[0]
+    alertes_epinglees = conn.execute("SELECT COUNT(*) FROM alertes WHERE active=1 AND COALESCE(epingle,0)=1").fetchone()[0]
+    alertes_programmees = conn.execute("SELECT COUNT(*) FROM alertes WHERE active=1 AND date_publication IS NOT NULL AND date_publication > CURRENT_TIMESTAMP::text").fetchone()[0]
+    alertes_par_type = conn.execute("SELECT type_alerte, COUNT(*) AS count FROM alertes GROUP BY type_alerte ORDER BY count DESC").fetchall()
     requetes_ouvertes = conn.execute("SELECT COUNT(*) FROM requetes WHERE statut='en_attente'").fetchone()[0]
+    requetes_en_cours = conn.execute("SELECT COUNT(*) FROM requetes WHERE statut='en_cours'").fetchone()[0]
+    requetes_resolues = conn.execute("SELECT COUNT(*) FROM requetes WHERE statut='resolu'").fetchone()[0]
 
     conn.close()
     return jsonify({
         "taux_collecte": taux,
         "total_facture": float(total_facture),
-        "total_percu":   float(total_percu),
-        "mensuel":       rows_to_list(mensuel),
-        "requetes":      rows_to_list(requetes),
-        "impayes":       rows_to_list(impayes),
+        "total_percu": float(total_percu),
+        "remaining": float(restant),
+        "mensuel": rows_to_list(mensuel),
+        "requetes": rows_to_list(requetes),
+        "impayes": rows_to_list(impayes),
         "mauvais_payeurs": rows_to_list(mauvais),
-        "messages_7j":   rows_to_list(messages),
+        "compound_fees": rows_to_list(compound_fees),
+        "messages_7j": rows_to_list(messages),
         "total_residents": total_residents,
-        "total_alertes":   total_alertes,
+        "occupied_apartments": occupied_total,
+        "vacant_apartments": max(TOTAL_APARTMENTS - occupied_total, 0),
+        "total_apartments": TOTAL_APARTMENTS,
+        "occupied_by_compound": rows_to_list(occupied_by_compound),
+        "total_alertes": total_alertes,
+        "alertes_archivees": alertes_archivees,
+        "alertes_epinglees": alertes_epinglees,
+        "alertes_programmees": alertes_programmees,
+        "alertes_par_type": rows_to_list(alertes_par_type),
         "requetes_ouvertes": requetes_ouvertes,
+        "requetes_en_cours": requetes_en_cours,
+        "requetes_resolues": requetes_resolues,
     })
 
 
@@ -747,7 +776,7 @@ def dashboard_operations():
     requetes_ouvertes = conn.execute("SELECT COUNT(*) FROM requetes WHERE statut='en_attente'").fetchone()[0]
     requetes_en_cours = conn.execute("SELECT COUNT(*) FROM requetes WHERE statut='en_cours'").fetchone()[0]
     requetes_resolues = conn.execute("SELECT COUNT(*) FROM requetes WHERE statut='resolu'").fetchone()[0]
-    total_residents = conn.execute("SELECT COUNT(*) FROM residents WHERE role='resident'").fetchone()[0]
+    total_residents = conn.execute("SELECT COUNT(*) FROM residents WHERE role='resident' AND (archived IS NULL OR archived=0)").fetchone()[0]
     alertes_recentes = rows_to_list(conn.execute(
         "SELECT id, titre, contenu, date_creation FROM alertes WHERE active=1 ORDER BY date_creation DESC LIMIT 5"
     ).fetchall())
@@ -755,14 +784,24 @@ def dashboard_operations():
         SELECT COUNT(DISTINCT expediteur_id) FROM messages
         WHERE date_envoi::timestamp >= CURRENT_TIMESTAMP - INTERVAL '7 days'
     """).fetchone()[0]
+    alertes_total = conn.execute("SELECT COUNT(*) FROM alertes").fetchone()[0]
+    alertes_actives = conn.execute("SELECT COUNT(*) FROM alertes WHERE active=1").fetchone()[0]
+    alertes_archivees = conn.execute("SELECT COUNT(*) FROM alertes WHERE active=0").fetchone()[0]
+    alertes_epinglees = conn.execute("SELECT COUNT(*) FROM alertes WHERE active=1 AND COALESCE(epingle,0)=1").fetchone()[0]
+    alertes_par_type = rows_to_list(conn.execute("SELECT type_alerte, COUNT(*) AS count FROM alertes GROUP BY type_alerte ORDER BY count DESC").fetchall())
     conn.close()
     return jsonify({
         "requetes_ouvertes": requetes_ouvertes,
         "requetes_en_cours": requetes_en_cours,
         "requetes_resolues": requetes_resolues,
-        "taux_occupation": round(total_residents / 200 * 100, 1) if total_residents else 0,
+        "taux_occupation": round(total_residents / TOTAL_APARTMENTS * 100, 1) if total_residents else 0,
         "alertes_recentes": alertes_recentes,
         "residents_actifs_7j": residents_actifs_7j,
+        "alertes_total": alertes_total,
+        "alertes_actives": alertes_actives,
+        "alertes_archivees": alertes_archivees,
+        "alertes_epinglees": alertes_epinglees,
+        "alertes_par_type": alertes_par_type,
     })
 
 @app.route("/api/dashboard/finance", methods=["GET"])
@@ -791,7 +830,15 @@ def dashboard_finance():
     impayes = rows_to_list(conn.execute("""
         SELECT c.id, r.nom||' '||r.prenom AS resident_nom, r.unite, c.montant_restant
         FROM charges c JOIN residents r ON c.resident_id=r.id
-        WHERE c.statut != 'paye' ORDER BY c.montant_restant DESC LIMIT 10
+        WHERE c.statut != 'paye' AND (r.archived IS NULL OR r.archived=0) ORDER BY c.montant_restant DESC LIMIT 10
+    """).fetchall())
+
+    compound_fees = rows_to_list(conn.execute("""
+        SELECT res.nom_complet, COALESCE(SUM(c.montant_total),0) AS total
+        FROM charges c JOIN residents r ON c.resident_id=r.id
+        JOIN residences res ON r.residence_id=res.id
+        WHERE (r.archived IS NULL OR r.archived=0)
+        GROUP BY res.nom_complet ORDER BY total DESC
     """).fetchall())
 
     conn.close()
@@ -803,6 +850,7 @@ def dashboard_finance():
         "mensuel": mensuel,
         "derniers_paiements": derniers_paiements,
         "impayes": impayes,
+        "compound_fees": compound_fees,
     })
 
 
