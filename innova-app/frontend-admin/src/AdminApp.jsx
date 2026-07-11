@@ -669,9 +669,22 @@ function PageResidents({ toast, onOuvrirChat, onViewProfil }) {
   useEffect(() => { charger() }, [])
   const q = search.toLowerCase().trim()
   const list = showArchives ? archives : residents
+  const [toggling, setToggling] = useState({})
   const filtered = q
     ? list.filter(r => (r.nom + ' ' + r.prenom).toLowerCase().includes(q) || r.prenom.toLowerCase().includes(q) || r.nom.toLowerCase().includes(q) || (r.unite || '').toLowerCase().includes(q))
     : list
+  const toggleArchive = async (r) => {
+    if (toggling[r.id]) return
+    setToggling(t => ({ ...t, [r.id]: true }))
+    try {
+      if (r.archived) {
+        await post(`/residents/${r.id}/desarchiver`)
+      } else {
+        await post(`/residents/${r.id}/archiver`)
+      }
+      await charger()
+    } catch (e) { toast(e.message) } finally { setToggling(t => ({ ...t, [r.id]: false })) }
+  }
   const creer = async e => {
     e.preventDefault(); setEnvoi(true)
     try {
@@ -713,12 +726,13 @@ function PageResidents({ toast, onOuvrirChat, onViewProfil }) {
         </div>
         <div className="table-wrap">
           <table>
-            <thead><tr><th>Résident</th><th>Résidence</th><th>Unité</th><th>Étage</th></tr></thead>
+            <thead><tr><th>Résident</th><th>Résidence</th><th>Unité</th><th>Actions</th></tr></thead>
             <tbody>
               {filtered.length === 0 ? (
                 <tr><td colSpan={4} style={{ textAlign: 'center', padding: 40, color: 'var(--muted)', fontSize: 13 }}>Aucun résident trouvé</td></tr>
               ) : filtered.map((r, i) => {
                 const av = avatarColors[i % avatarColors.length]
+                const loadingId = toggling[r.id]
                 return (
                   <tr key={r.id}>
                     <td><div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
@@ -731,7 +745,20 @@ function PageResidents({ toast, onOuvrirChat, onViewProfil }) {
                     </div></td>
                     <td><span style={{ background: 'var(--red-light)', color: 'var(--red)', padding: '2px 8px', borderRadius: 6, fontSize: 11, fontWeight: 600 }}>{r.residence_nom || 'INNOVIM'}</span></td>
                     <td><strong>{r.unite}</strong></td>
-                    <td>{r.etage}</td>
+                    <td>
+                      <button onClick={() => toggleArchive(r)} disabled={loadingId} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 12px', borderRadius: 20, border: 'none', cursor: loadingId ? 'wait' : 'pointer', fontSize: 12, fontWeight: 600, background: r.archived ? '#E5E7EB' : '#10B98120', color: r.archived ? '#6B7280' : '#10B981', transition: 'all 0.2s' }}>
+                        <div style={{ width: 16, height: 16, borderRadius: '50%', background: r.archived ? '#9CA3AF' : '#10B981', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s' }}>
+                          {loadingId ? (
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" opacity="0.5"/></svg>
+                          ) : r.archived ? (
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                          ) : (
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+                          )}
+                        </div>
+                        {r.archived ? 'Archivé' : 'Actif'}
+                      </button>
+                    </td>
                   </tr>
                 )
               })}
@@ -784,15 +811,6 @@ function PageResidents({ toast, onOuvrirChat, onViewProfil }) {
               <button type="button" className="btn btn-outline" style={{ width: '100%' }} onClick={() => { const r = selectedResident; setSelectedResident(null); onViewProfil(r.id) }}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: 6 }}><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Voir le profil
               </button>
-              {selectedResident.archived ? (
-                <button type="button" className="btn btn-outline" style={{ width: '100%', borderColor: '#10B981', color: '#10B981' }} onClick={async () => { try { await post(`/residents/${selectedResident.id}/desarchiver`); setSelectedResident(null); charger(); toast('Résident désarchivé') } catch (e) { toast(e.message) } }}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: 6 }}><polyline points="1 12 5 16 11 6"/></svg> Restaurer
-                </button>
-              ) : (
-                <button type="button" className="btn btn-outline" style={{ width: '100%', borderColor: 'var(--red)', color: 'var(--red)' }} onClick={async () => { if (!confirm(`Archiver ${selectedResident.prenom} ${selectedResident.nom} ?`)) return; try { await post(`/residents/${selectedResident.id}/archiver`); setSelectedResident(null); charger(); toast('Résident archivé') } catch (e) { toast(e.message) } }}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: 6 }}><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg> Archiver
-                </button>
-              )}
             </div>
           </div>
         </Modal>
