@@ -315,8 +315,8 @@ def payer_admin(charge_id):
         note = d.get("note", "").strip()
         if montant <= 0:
             return jsonify({"erreur": "Montant invalide"}), 400
-        ref, restant = ChargeDB.pay_admin(charge_id, montant, note)
-        return jsonify({"succes": True, "reference": ref, "montant_restant": restant})
+        ref, restant, payment_id = ChargeDB.pay_admin(charge_id, montant, note)
+        return jsonify({"succes": True, "reference": ref, "montant_restant": restant, "paiement_id": payment_id})
     except ValueError as e:
         return jsonify({"erreur": str(e)}), 400
 
@@ -324,6 +324,14 @@ def payer_admin(charge_id):
 @login_requis
 def get_paiements_charge(charge_id):
     return jsonify(ChargeDB.get_paiements(charge_id))
+
+@app.route("/api/paiements/<int:paiement_id>", methods=["GET"])
+@role_requis("super_admin", "finance")
+def get_paiement(paiement_id):
+    p = ChargeDB.get_paiement_by_id(paiement_id)
+    if not p:
+        return jsonify({"erreur": "Paiement introuvable"}), 404
+    return jsonify(p)
 
 
 # -- MESSAGES ------------------------------------------------------------------

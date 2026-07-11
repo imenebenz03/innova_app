@@ -64,6 +64,79 @@ const fmtDA = val => {
 }
 const STAFF_ROLES = ['super_admin', 'operations', 'finance', 'admin']
 
+function openPrintWindow(html) {
+  const w = window.open('', '_blank')
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>INNOVA</title>
+<style>
+  @page { margin: 15mm; size: A4; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; color: #1a1a1a; line-height: 1.6; padding: 20px; }
+  .header { text-align: center; border-bottom: 2px solid #C41E1E; padding-bottom: 16px; margin-bottom: 24px; }
+  .header h1 { font-size: 22px; color: #C41E1E; margin-bottom: 4px; }
+  .header p { font-size: 12px; color: #666; }
+  .meta { display: flex; justify-content: space-between; font-size: 12px; color: #666; margin-bottom: 20px; }
+  .content { font-size: 14px; margin-bottom: 24px; white-space: pre-wrap; }
+  .footer { text-align: center; font-size: 11px; color: #999; border-top: 1px solid #ddd; padding-top: 12px; margin-top: 32px; }
+  .stamp { text-align: right; margin-top: 40px; font-size: 12px; color: #333; }
+  table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 13px; }
+  td, th { padding: 8px 12px; border: 1px solid #ddd; text-align: left; }
+  th { background: #f5f5f5; font-weight: 600; }
+  .label { color: #888; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .value { font-weight: 600; font-size: 14px; }
+  .receipt-box { border: 2px solid #C41E1E; border-radius: 8px; padding: 20px; margin: 16px 0; }
+  .receipt-box h2 { color: #C41E1E; font-size: 18px; margin-bottom: 12px; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 12px 0; }
+  @media print { body { padding: 0; } }
+</style></head><body>${html}<script>window.print()<\/script></body></html>`)
+  w.document.close()
+}
+
+function printAlert(a) {
+  const typeLabel = { danger: 'Urgence', attention: 'Attention', info: 'Information', succes: 'Résolu' }[a.type_alerte] || 'Information'
+  const html = `
+    <div class="header">
+      <h1>AVIS ${typeLabel.toUpperCase()}</h1>
+      <p>${fmtFull(a.date_creation)}</p>
+    </div>
+    <div class="meta">
+      <span>Réf: AL-${String(a.id).padStart(4, '0')}</span>
+      <span>Publié par: ${a.auteur_nom}</span>
+    </div>
+    <h2 style="font-size:18px;margin-bottom:12px">${a.titre}</h2>
+    <div class="content">${a.contenu}</div>
+    ${a.date_publication ? `<div class="meta"><span>Publiée le: ${fmtFull(a.date_publication)}</span></div>` : ''}
+    <div class="footer">Document généré par INNOVA — Administration BENZAAMIA PROMOTION</div>
+  `
+  openPrintWindow(html)
+}
+
+function printReceipt(p) {
+  const html = `
+    <div class="header">
+      <h1>REÇU DE PAIEMENT</h1>
+      <p>N° ${p.reference}</p>
+    </div>
+    <div class="receipt-box">
+      <h2>BENZAAMIA PROMOTION</h2>
+      <div class="grid-2">
+        <div><div class="label">Résident</div><div class="value">${p.resident_nom}</div></div>
+        <div><div class="label">Unité</div><div class="value">${p.unite}</div></div>
+        <div><div class="label">Résidence</div><div class="value">${p.residence_nom}</div></div>
+        <div><div class="label">Date de paiement</div><div class="value">${fmtFull(p.date_paiement)}</div></div>
+      </div>
+      <table>
+        <tr><th>Désignation</th><th>Montant</th></tr>
+        <tr><td>${p.designation}</td><td style="text-align:right;font-weight:700">${fmtDA(p.montant)}</td></tr>
+      </table>
+      <div style="text-align:right;font-size:16px;font-weight:700;margin-top:8px">Total: ${fmtDA(p.montant)}</div>
+      ${p.note ? `<div style="margin-top:12px"><span class="label">Note:</span> ${p.note}</div>` : ''}
+    </div>
+    <div class="stamp">Cachet & signature</div>
+    <div class="footer">Document généré par INNOVA — Administration BENZAAMIA PROMOTION</div>
+  `
+  openPrintWindow(html)
+}
+
 const rolePermissions = {
   super_admin: ['accueil', 'residents', 'charges', 'messagerie', 'alertes', 'requetes', 'analytiques', 'profil'],
   operations:  ['accueil', 'residents', 'messagerie', 'alertes', 'requetes', 'profil'],
@@ -147,6 +220,9 @@ function AlerteCard({ a, onDel, onDelete }) {
           {onDel && (
             <button onClick={onDel} title="Archiver" style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, padding: 4 }}>✓</button>
           )}
+          <button onClick={() => printAlert(a)} title="Imprimer l'avis" style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 14, padding: 4, color: 'var(--hint)' }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+          </button>
           {onDelete && (
             <button onClick={onDelete} title="Supprimer définitivement" style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, padding: 4, color: 'var(--red)' }}>✕</button>
           )}
@@ -599,6 +675,7 @@ function PageCharges({ toast }) {
   const [settingsForm, setSettingsForm] = useState({ montant: '15000' })
   const [activeTab, setActiveTab] = useState('actives')
   const [envoi, setEnvoi] = useState(false)
+  const [lastReceipt, setLastReceipt] = useState(null)
   
   useEffect(() => { charger(); chargerSettings() }, [])
   
@@ -647,11 +724,15 @@ function PageCharges({ toast }) {
     }
     setEnvoi(true)
     try {
-      await post(`/charges/${modal.id}/payer-admin`, {
+      const r = await post(`/charges/${modal.id}/payer-admin`, {
         montant: parseFloat(paiementForm.montant),
         note: paiementForm.note
       })
       toast('Paiement enregistré avec succès !')
+      if (r.paiement_id) {
+        const p = await get(`/paiements/${r.paiement_id}`)
+        setLastReceipt(p)
+      }
       setModal(null)
       setPaiementForm({ montant: '', note: '' })
       charger()
@@ -664,6 +745,12 @@ function PageCharges({ toast }) {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
         <div className="page-title">Charges</div>
         <div style={{ display: 'flex', gap: 10 }}>
+          {lastReceipt && (
+            <button className="btn btn-green" onClick={() => { printReceipt(lastReceipt); setLastReceipt(null) }} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+              Télécharger le reçu
+            </button>
+          )}
           <button className="btn btn-outline" onClick={() => setSettingsModal(true)} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             ⚙️ Montant mensuel
           </button>
@@ -803,21 +890,27 @@ function PageCharges({ toast }) {
       {activeTab === 'history' && (
         chargesHistory.length === 0 ? <div style={{ padding: 40, textAlign: 'center', color: 'var(--muted)' }}>Aucun historique</div> : (
           <div className="card" style={{ padding: 0, borderRadius: 16, overflow: 'hidden', opacity: 0.85 }}>
-            <table>
-              <thead><tr><th>Désignation</th><th>Résident</th><th>Montant payé</th><th>Date paiement</th><th>Statut</th></tr></thead>
-              <tbody>
-                {filteredHistory.length === 0 ? (
-                  <tr><td colSpan={5} style={{ textAlign: 'center', padding: 40, color: 'var(--muted)', fontSize: 13 }}>Aucun résultat</td></tr>
-                ) : filteredHistory.map(c => (
-                  <tr key={c.id}>
-                    <td style={{ fontWeight: 600 }}>{c.designation}</td>
-                    <td>{c.resident_nom}</td>
-                    <td style={{ fontWeight: 700, color: '#10B981' }}>{fmtDA(c.montant_total)}</td>
-                    <td style={{ color: 'var(--muted)', fontSize: 12 }}>{fmtFull(c.date_paiement)}</td>
-                    <td><span style={{ background: '#10B98120', color: '#10B981', padding: '4px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600 }}>Payé</span></td>
-                  </tr>
-                ))}
-              </tbody>
+              <table>
+                  <thead><tr><th>Désignation</th><th>Résident</th><th>Montant payé</th><th>Date paiement</th><th>Statut</th><th></th></tr></thead>
+                  <tbody>
+                    {filteredHistory.length === 0 ? (
+                      <tr><td colSpan={6} style={{ textAlign: 'center', padding: 40, color: 'var(--muted)', fontSize: 13 }}>Aucun résultat</td></tr>
+                    ) : filteredHistory.map(c => (
+                      <tr key={c.id}>
+                        <td style={{ fontWeight: 600 }}>{c.designation}</td>
+                        <td>{c.resident_nom}</td>
+                        <td style={{ fontWeight: 700, color: '#10B981' }}>{fmtDA(c.montant_total)}</td>
+                        <td style={{ color: 'var(--muted)', fontSize: 12 }}>{fmtFull(c.date_paiement)}</td>
+                        <td><span style={{ background: '#10B98120', color: '#10B981', padding: '4px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600 }}>Payé</span></td>
+                        <td>
+                          <button onClick={async () => { try { const ps = await get(`/charges/${c.id}/paiements`); const p = await get(`/paiements/${ps[0].id}`); printReceipt(p) } catch {} }} title="Imprimer le reçu" style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', padding: '6px 10px', fontSize: 12, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+                            Reçu
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
             </table>
           </div>
         )
