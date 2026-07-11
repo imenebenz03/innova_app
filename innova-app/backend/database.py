@@ -867,6 +867,7 @@ class AlerteDB:
                     base + " ORDER BY a.epingle DESC, a.date_creation DESC"
                 ).fetchall()
         except Exception:
+            conn.rollback()
             rows = conn.execute(
                 "SELECT a.*,r.nom||' '||r.prenom AS auteur_nom FROM alertes a JOIN residents r ON a.auteur_id=r.id WHERE a.active=1 ORDER BY a.date_creation DESC"
             ).fetchall()
@@ -919,6 +920,18 @@ class AlerteDB:
         conn.close()
 
     @staticmethod
+    def _try_migrate():
+        try:
+            conn = psycopg2.connect(DATABASE_URL)
+            c = conn.cursor()
+            c.execute("ALTER TABLE alertes ADD COLUMN IF NOT EXISTS epingle INTEGER NOT NULL DEFAULT 0")
+            c.execute("ALTER TABLE alertes ADD COLUMN IF NOT EXISTS date_publication TEXT")
+            conn.commit()
+            conn.close()
+        except:
+            pass
+
+    @staticmethod
     def create(titre, contenu, type_alerte, auteur_id, residence_id=None, epingle=0, date_publication=None):
         titre = titre.strip()
         contenu = contenu.strip()
@@ -928,8 +941,14 @@ class AlerteDB:
         if type_alerte not in valid_types:
             type_alerte = "info"
         conn = get_connection()
-        conn.execute("INSERT INTO alertes (titre,contenu,type_alerte,auteur_id,residence_id,epingle,date_publication) VALUES (?,?,?,?,?,?,?)",
-                     (titre, contenu, type_alerte, auteur_id, residence_id, 1 if epingle else 0, date_publication or None))
+        try:
+            conn.execute("INSERT INTO alertes (titre,contenu,type_alerte,auteur_id,residence_id,epingle,date_publication) VALUES (?,?,?,?,?,?,?)",
+                         (titre, contenu, type_alerte, auteur_id, residence_id, 1 if epingle else 0, date_publication or None))
+        except Exception:
+            conn.rollback()
+            AlerteDB._try_migrate()
+            conn.execute("INSERT INTO alertes (titre,contenu,type_alerte,auteur_id,residence_id) VALUES (?,?,?,?,?)",
+                         (titre, contenu, type_alerte, auteur_id, residence_id))
         
         if residence_id:
             residents = conn.execute("SELECT id FROM residents WHERE role='resident' AND residence_id=?", (residence_id,)).fetchall()
