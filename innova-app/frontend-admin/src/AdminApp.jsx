@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import html2pdf from 'html2pdf.js'
+import * as XLSX from 'xlsx'
 
 const API = 'https://innova-app.onrender.com/api'
 async function api(method, path, body) {
@@ -64,10 +66,7 @@ const fmtDA = val => {
 }
 const STAFF_ROLES = ['super_admin', 'operations', 'finance', 'admin']
 
-function openPrintWindow(html) {
-  const w = window.open('', '_blank')
-  w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>INNOVA</title>
-<style>
+const PDF_STYLE = `
   @page { margin: 15mm; size: A4; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: 'Segoe UI', system-ui, sans-serif; color: #1a1a1a; line-height: 1.6; padding: 20px; }
@@ -86,9 +85,28 @@ function openPrintWindow(html) {
   .receipt-box { border: 2px solid #C41E1E; border-radius: 8px; padding: 20px; margin: 16px 0; }
   .receipt-box h2 { color: #C41E1E; font-size: 18px; margin-bottom: 12px; }
   .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 12px 0; }
-  @media print { body { padding: 0; } }
-</style></head><body>${html}<script>window.print()<\/script></body></html>`)
-  w.document.close()
+`
+
+function downloadPDF(htmlContent, filename) {
+  const div = document.createElement('div')
+  div.innerHTML = `<style>${PDF_STYLE}</style>${htmlContent}`
+  div.style.position = 'fixed'
+  div.style.left = '-9999px'
+  div.style.top = '0'
+  div.style.width = '210mm'
+  div.style.background = '#fff'
+  document.body.appendChild(div)
+  html2pdf().from(div).set({
+    margin: [15, 15, 15, 15],
+    filename,
+    image: { type: 'jpeg', quality: 0.98 },
+    html2canvas: { scale: 2, useCORS: true, letterRendering: true },
+    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+  }).save().then(() => {
+    document.body.removeChild(div)
+  }).catch(() => {
+    document.body.removeChild(div)
+  })
 }
 
 function printAlert(a) {
@@ -107,7 +125,7 @@ function printAlert(a) {
     ${a.date_publication ? `<div class="meta"><span>Publiée le: ${fmtFull(a.date_publication)}</span></div>` : ''}
     <div class="footer">Document généré par INNOVA — Administration BENZAAMIA PROMOTION</div>
   `
-  openPrintWindow(html)
+  downloadPDF(html, `avis-AL-${String(a.id).padStart(4, '0')}.pdf`)
 }
 
 function printReceipt(p) {
@@ -120,13 +138,13 @@ function printReceipt(p) {
       <h2>BENZAAMIA PROMOTION</h2>
       <div class="grid-2">
         <div><div class="label">Résident</div><div class="value">${p.resident_nom}</div></div>
-        <div><div class="label">Unité</div><div class="value">${p.unite}</div></div>
+        <div><div class="label">Unité</div><div class="value">${p.resident_unite}</div></div>
         <div><div class="label">Résidence</div><div class="value">${p.residence_nom}</div></div>
         <div><div class="label">Date de paiement</div><div class="value">${fmtFull(p.date_paiement)}</div></div>
       </div>
       <table>
         <tr><th>Désignation</th><th>Montant</th></tr>
-        <tr><td>${p.designation}</td><td style="text-align:right;font-weight:700">${fmtDA(p.montant)}</td></tr>
+        <tr><td>${p.charge_designation}</td><td style="text-align:right;font-weight:700">${fmtDA(p.montant)}</td></tr>
       </table>
       <div style="text-align:right;font-size:16px;font-weight:700;margin-top:8px">Total: ${fmtDA(p.montant)}</div>
       ${p.note ? `<div style="margin-top:12px"><span class="label">Note:</span> ${p.note}</div>` : ''}
@@ -134,7 +152,36 @@ function printReceipt(p) {
     <div class="stamp">Cachet & signature</div>
     <div class="footer">Document généré par INNOVA — Administration BENZAAMIA PROMOTION</div>
   `
-  openPrintWindow(html)
+  downloadPDF(html, `recu-${p.reference || 'paiement'}.pdf`)
+}
+
+async function exportPaymentsExcel(toast) {
+  try {
+    const rows = await get('/paiements/export')
+    if (!rows.length) { toast('Aucun paiement à exporter'); return }
+    const data = rows.map(r => ({
+      'Résident': r.resident_nom || '',
+      'Appartement': r.unite || '',
+      'Résidence': r.residence_nom || '',
+      'Montant': r.montant || 0,
+      'Date': r.date_paiement ? new Date(r.date_paiement).toLocaleDateString('fr-DZ') : '',
+      'Méthode': r.methode === 'administration' ? 'Administration' : r.methode || '',
+      'Solde restant': r.montant_restant || 0,
+      'Statut': r.statut === 'paye' ? 'Payé' : r.statut === 'partiel' ? 'Partiel' : r.statut || ''
+    }))
+    const ws = XLSX.utils.json_to_sheet(data)
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Paiements')
+    ws['!cols'] = [
+      { wch: 25 }, { wch: 14 }, { wch: 20 },
+      { wch: 14 }, { wch: 14 }, { wch: 18 },
+      { wch: 14 }, { wch: 12 }
+    ]
+    XLSX.writeFile(wb, 'paiements.xlsx')
+    toast('Export réussi !')
+  } catch (e) {
+    toast('Erreur export: ' + e.message)
+  }
 }
 
 const rolePermissions = {
@@ -217,12 +264,13 @@ function AlerteCard({ a, onDel, onDelete }) {
           </div>
         </div>
         <div style={{ display: 'flex', gap: 8, marginLeft: 12, flexShrink: 0 }}>
+          <button onClick={() => printAlert(a)} title="Generate Printable Notice" style={{ background: 'none', border: '1px solid '+c.color+'40', borderRadius: 8, cursor: 'pointer', padding: '6px 10px', fontSize: 11, fontWeight: 600, color: c.color, display: 'flex', alignItems: 'center', gap: 4 }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+            Generate Printable Notice
+          </button>
           {onDel && (
             <button onClick={onDel} title="Archiver" style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, padding: 4 }}>✓</button>
           )}
-          <button onClick={() => printAlert(a)} title="Imprimer l'avis" style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 14, padding: 4, color: 'var(--hint)' }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
-          </button>
           {onDelete && (
             <button onClick={onDelete} title="Supprimer définitivement" style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, padding: 4, color: 'var(--red)' }}>✕</button>
           )}
@@ -732,6 +780,7 @@ function PageCharges({ toast }) {
       if (r.paiement_id) {
         const p = await get(`/paiements/${r.paiement_id}`)
         setLastReceipt(p)
+        setTimeout(() => { try { printReceipt(p) } catch (e) { toast('Erreur génération PDF: '+e.message) } }, 500)
       }
       setModal(null)
       setPaiementForm({ montant: '', note: '' })
@@ -748,7 +797,7 @@ function PageCharges({ toast }) {
           {lastReceipt && (
             <button className="btn btn-green" onClick={() => { printReceipt(lastReceipt); setLastReceipt(null) }} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
-              Télécharger le reçu
+              Télécharger le reçu (PDF)
             </button>
           )}
           <button className="btn btn-outline" onClick={() => setSettingsModal(true)} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -756,6 +805,10 @@ function PageCharges({ toast }) {
           </button>
           <button className="btn btn-red" onClick={genererCharges} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <span style={{ fontSize: 18, lineHeight: 1 }}>+</span> Générer charges mensuelles
+          </button>
+          <button className="btn btn-outline" onClick={() => exportPaymentsExcel(toast)} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+            Export Excel
           </button>
         </div>
       </div>
@@ -903,9 +956,9 @@ function PageCharges({ toast }) {
                         <td style={{ color: 'var(--muted)', fontSize: 12 }}>{fmtFull(c.date_paiement)}</td>
                         <td><span style={{ background: '#10B98120', color: '#10B981', padding: '4px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600 }}>Payé</span></td>
                         <td>
-                          <button onClick={async () => { try { const ps = await get(`/charges/${c.id}/paiements`); const p = await get(`/paiements/${ps[0].id}`); printReceipt(p) } catch {} }} title="Imprimer le reçu" style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', padding: '6px 10px', fontSize: 12, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <button onClick={async () => { try { const ps = await get(`/charges/${c.id}/paiements`); const p = await get(`/paiements/${ps[0].id}`); printReceipt(p) } catch {} }} title="Télécharger le reçu en PDF (A4)" style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', padding: '6px 10px', fontSize: 12, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
-                            Reçu
+                            PDF Reçu
                           </button>
                         </td>
                       </tr>
@@ -1145,7 +1198,7 @@ function PageMessagerie({ resident, toast, residentInitial, onCloseInitial }) {
   )
 }
 
-function PageAlertes({ toast }) {
+function PageAlertes({ toast, role }) {
   const [alertes, setAlertes] = useState([])
   const [alertesHistory, setAlertesHistory] = useState([])
   const [loading, setLoading] = useState(true)
@@ -2002,7 +2055,7 @@ export default function AdminApp() {
     residents:  <PageResidents toast={toast} onOuvrirChat={ouvrirChatResident} onViewProfil={handleViewProfil} />,
     charges:    <PageCharges toast={toast} />,
     messagerie: <PageMessagerie resident={resident} toast={toast} residentInitial={chatResident} onCloseInitial={() => setChatResident(null)} />,
-    alertes:    <PageAlertes toast={toast} />,
+    alertes:    <PageAlertes toast={toast} role={role} />,
     requetes:   <PageRequetes toast={toast} />,
     analytiques: <PageAnalytiques />,
     profil: <PageProfil residentId={profilResidentId} role={role} toast={toast} />,

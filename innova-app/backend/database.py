@@ -358,9 +358,285 @@ def init_db():
 
     _ensure_staff_accounts(c)
 
+    conn.commit()
+    conn.close()
+    print("Base de donnees INNOVA initialisee -> PostgreSQL")
+
+
+def _ensure_staff_accounts(c):
+    staff = [
+        ("admin@innovim.dz",    "Administration", "super_admin"),
+        ("finance@innovim.dz",   "Finance",        "finance"),
+        ("operations@innovim.dz","Operations",     "operations"),
+    ]
+    for email, nom, role in staff:
+        existing = c.execute("SELECT id, role FROM residents WHERE email=?", (email,)).fetchone()
+        if not existing:
+            c.execute(
+                "INSERT INTO residents (residence_id,nom,prenom,email,mot_de_passe,unite,etage,telephone,role) VALUES (?,?,?,?,?,?,?,?,?)",
+                (3, nom, "Service", email, hash_password("admin123"), "ADMIN", 0, "+213 21 00 00 00", role)
+            )
+            print(f"  -> Compte cree: {email} ({role})")
+        elif existing["role"] != role:
+            c.execute("UPDATE residents SET role=? WHERE id=?", (role, existing["id"]))
+            print(f"  -> Role mis a jour: {email} -> {role}")
+
+
+def _seed_demo_data(c):
+    admin_pwd = hash_password("admin123")
+    res_pwd   = hash_password("resident123")
+
+    c.executemany(
+        "INSERT INTO residents (residence_id,nom,prenom,email,mot_de_passe,unite,etage,telephone,role) VALUES (?,?,?,?,?,?,?,?,?)",
+        [
+            (3,"INNOVIM","Administration","admin@innovim.dz",        admin_pwd,"ADMIN",0,"+213 21 00 00 00","super_admin"),
+            (3,"INNOVIM","Finance","finance@innovim.dz",           admin_pwd,"ADMIN",0,"+213 21 00 00 01","finance"),
+            (3,"INNOVIM","Operations","operations@innovim.dz",     admin_pwd,"ADMIN",0,"+213 21 00 00 02","operations"),
+            (1,"Karim",  "Ahmed",         "ahmed.karim@email.dz",    res_pwd,  "7C",  3,"+213 661 234 567","resident"),
+            (1,"Boudali","Meriem",        "meriem.boudali@email.dz", res_pwd,  "5A",  2,"+213 770 987 654","resident"),
+            (1,"Benali", "Riad",          "riad.benali@email.dz",    res_pwd,  "2B",  1,"+213 555 456 789","resident"),
+            (2,"Hamidi", "Sonia",         "sonia.hamidi@email.dz",   res_pwd,  "4D",  2,"+213 661 112 233","resident"),
+            (2,"Mansouri","Youssef",      "youssef.mans@email.dz",   res_pwd,  "3A",  1,"+213 662 334 455","resident"),
+            (3,"Amrani", "Fatima",        "fatima.amrani@email.dz",  res_pwd,  "6B",  3,"+213 663 445 566","resident"),
+            (4,"Bensalem","Nacer",        "nacer.bens@email.dz",     res_pwd,  "1C",  0,"+213 664 556 677","resident"),
+            (1,"Zerrouki","Leila",        "leila.zerr@email.dz",     res_pwd,  "8D",  4,"+213 665 667 788","resident"),
+            (2,"Bouabdallah","Omar",      "omar.bouab@email.dz",     res_pwd,  "5E",  2,"+213 666 778 899","resident"),
+            (3,"Khaled", "Nabil",         "nabil.khaled@email.dz",   res_pwd,  "2F",  1,"+213 667 889 900","resident"),
+            (4,"Sellami","Sarah",         "sarah.sell@email.dz",     res_pwd,  "7G",  3,"+213 668 990 011","resident"),
+        ]
+    )
+
+    c.executemany(
+        "INSERT INTO charges (resident_id,designation,montant_total,montant_restant,echeance,statut,date_paiement) VALUES (?,?,?,?,?,?,?)",
+        [
+            (2,"Charges de copropriete - Avril 2026",15000.00,15000.00,"2026-04-30","en_attente",None),
+            (2,"Charges de copropriete - Mars 2026", 15000.00,0.00,    "2026-03-31","paye",      "2026-03-01"),
+            (3,"Charges de copropriete - Avril 2026",15000.00,8000.00, "2026-04-30","partiel",   None),
+            (4,"Charges de copropriete - Avril 2026",15000.00,15000.00,"2026-04-30","en_attente",None),
+            (5,"Charges de copropriete - Avril 2026",15000.00,0.00,    "2026-04-30","paye",      "2026-04-02"),
+            (6,"Charges de copropriete - Avril 2026",15000.00,15000.00,"2026-04-30","en_attente",None),
+            (7,"Charges de copropriete - Avril 2026",15000.00,5000.00, "2026-04-30","partiel",   None),
+            (8,"Charges de copropriete - Avril 2026",15000.00,0.00,    "2026-04-30","paye",      "2026-04-05"),
+            (9,"Charges de copropriete - Avril 2026",15000.00,15000.00,"2026-04-30","en_attente",None),
+            (10,"Charges de copropriete - Avril 2026",15000.00,12000.00,"2026-04-30","partiel",   None),
+            (11,"Charges de copropriete - Avril 2026",15000.00,0.00,    "2026-04-30","paye",      "2026-04-01"),
+            (12,"Charges de copropriete - Avril 2026",15000.00,15000.00,"2026-04-30","en_attente",None),
+            (2,"Charges de copropriete - Mai 2026",15000.00,15000.00,"2026-05-31","en_attente",None),
+            (4,"Charges de copropriete - Mai 2026",15000.00,15000.00,"2026-05-31","en_attente",None),
+        ]
+    )
+
+    c.executemany(
+        "INSERT INTO alertes (titre,contenu,type_alerte,auteur_id,date_creation) VALUES (?,?,?,?,?)",
+        [
+            ("Coupure d'eau - Dimanche 20 Avr, 09h-14h",
+             "Des travaux de maintenance sur le reseau principal necessiteront une coupure d'eau. Veuillez stockere de l'eau en avance.",
+             "attention",1,"2026-04-14 08:00:00"),
+            ("Inspection gaz Sonelgaz - Vendredi 19 Avr",
+             "Des techniciens de Sonelgaz interviendront dans tous les appartements. Merci de rester disponible ou de deposer vos cles chez le gardien.",
+             "danger",1,"2026-04-13 10:00:00"),
+            ("Maintenance Ascenseur A - Mercredi 16 Avr",
+             "L'ascenseur A sera en arret de 9h a 11h. L'ascenseur B reste operationnel.",
+             "info",1,"2026-04-12 09:00:00"),
+            ("Salle commune ouverte",
+             "Les travaux sont termines. L'espace est a nouveau accessible a tous les residents.",
+             "succes",1,"2026-04-15 14:00:00"),
+        ]
+    )
+
+    c.executemany(
+        "INSERT INTO requetes (resident_id,sujet,contenu,statut,reponse,date_reponse) VALUES (?,?,?,?,?,?)",
+        [
+            (2,"Nuisances sonores - Appartement 3A",
+             "De la musique forte apres 23h en semaine depuis deux semaines.",
+             "resolu","Nous avons contacte le resident du 3A et l'avons averti formellement.","2026-04-13 10:00:00"),
+            (3,"Probleme canalisation salle de bain",
+             "Il y a une fuite au niveau de la canalisation sous le lavabo depuis 3 jours.",
+             "en_attente",None,None),
+        ]
+    )
+
+    c.executemany(
+        "INSERT INTO notifications (resident_id,titre,contenu,type_notif) VALUES (?,?,?,?)",
+        [
+            (2,"Bienvenue sur INNOVA","Votre espace resident INNOVIM est pret.","info"),
+            (2,"Charge disponible","Vos charges d'Avril 2026 sont disponibles : 15 000 DA.","charge"),
+            (3,"Paiement partiel recu","Paiement de 7 000 DA enregistre. Reste : 8 000 DA.","paiement"),
+        ]
+    )
+
+
+class ResidenceDB:
+    @staticmethod
+    def get_all():
+        conn = get_connection()
+        rows = conn.execute("SELECT * FROM residences WHERE actif=1 ORDER BY nom").fetchall()
+        conn.close()
+        return rows_to_list(rows)
+
+    @staticmethod
+    def get_by_id(residence_id):
+        conn = get_connection()
+        row = conn.execute("SELECT * FROM residences WHERE id=?", (residence_id,)).fetchone()
+        conn.close()
+        return row_to_dict(row)
+
+    @staticmethod
+    def create(nom, nom_complet, adresse=""):
+        conn = get_connection()
+        conn.execute(
+            "INSERT INTO residences (nom, nom_complet, adresse) VALUES (?, ?, ?)",
+            (nom, nom_complet, adresse)
+        )
         conn.commit()
         conn.close()
-        return ref, nouveau_restant, payment_id
+
+    @staticmethod
+    def seed_default():
+        conn = get_connection()
+        existing = conn.execute("SELECT COUNT(*) FROM residences").fetchone()[0]
+        if existing == 0:
+            residences = [
+                ("baitek", "Baitek", "Alger"),
+                ("baitek2", "Baitek 2", "Alger"),
+                ("innovim", "INNOVIM", "Alger"),
+                ("innovim2", "INNOVIM 2", "Alger"),
+            ]
+            conn.executemany(
+                "INSERT INTO residences (nom, nom_complet, adresse) VALUES (?, ?, ?)",
+                [(*r,) for r in residences]
+            )
+            conn.commit()
+        
+        existing_settings = conn.execute("SELECT COUNT(*) FROM settings WHERE cle='montant_mensuel'").fetchone()[0]
+        if existing_settings == 0:
+            conn.execute("INSERT INTO settings (cle, valeur) VALUES ('montant_mensuel', '15000')")
+            conn.commit()
+        
+        conn.close()
+
+
+# -- CLASSES METIER ---------------------------------------------------------------
+
+class ResidentDB:
+    @staticmethod
+    def authenticate(email, password):
+        conn = get_connection()
+        row = conn.execute("SELECT r.*, res.nom_complet as residence_nom FROM residents r LEFT JOIN residences res ON r.residence_id=res.id WHERE r.email=?", (email,)).fetchone()
+        if not row:
+            conn.close()
+            return None
+        resident = row_to_dict(row)
+        if not verify_password(password, resident["mot_de_passe"]):
+            conn.close()
+            return None
+        upgrade_password_if_needed(conn, resident["id"], password, resident["mot_de_passe"])
+        conn.close()
+        return resident
+
+    @staticmethod
+    def get_all():
+        conn = get_connection()
+        rows = conn.execute(
+            "SELECT r.id,r.nom,r.prenom,r.unite,r.etage,r.telephone,r.role,r.date_inscription,res.nom_complet as residence_nom FROM residents r LEFT JOIN residences res ON r.residence_id=res.id WHERE r.role NOT IN ('super_admin','operations','finance','admin') ORDER BY r.unite"
+        ).fetchall()
+        conn.close()
+        return rows_to_list(rows)
+
+    @staticmethod
+    def get_by_id(rid):
+        conn = get_connection()
+        row = conn.execute("SELECT * FROM residents WHERE id=?", (rid,)).fetchone()
+        conn.close()
+        return row_to_dict(row)
+
+    @staticmethod
+    def create(nom, prenom, email, password, unite, etage, telephone="", residence_id=1):
+        nom = nom.strip()
+        prenom = prenom.strip()
+        email = email.strip().lower()
+        unite = unite.strip()
+        telephone = telephone.strip()
+        if not nom or not prenom or not email or not password or not unite:
+            return False, "Tous les champs obligatoires doivent etre remplis"
+        if len(password) < 6:
+            return False, "Le mot de passe doit contenir au moins 6 caracteres"
+        conn = get_connection()
+        try:
+            conn.execute(
+                "INSERT INTO residents (residence_id,nom,prenom,email,mot_de_passe,unite,etage,telephone) VALUES (?,?,?,?,?,?,?,?)",
+                (residence_id, nom, prenom, email, hash_password(password), unite, int(etage or 0), telephone)
+            )
+            conn.commit()
+            new_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+            residence = row_to_dict(conn.execute("SELECT nom_complet FROM residences WHERE id=?", (residence_id,)).fetchone())
+            residence_nom = residence.get("nom_complet", "INNOVIM") if residence else "INNOVIM"
+            conn.execute(
+                "INSERT INTO notifications (resident_id,titre,contenu,type_notif) VALUES (?,?,?,?)",
+                (new_id, "Bienvenue sur BENZAAMIA PROMOTION", f"Bonjour {prenom}, votre compte {residence_nom} est actif.", "info")
+            )
+            conn.commit()
+            return True, "Resident cree avec succes"
+        except IntegrityError:
+            return False, "Cet email est deja utilise"
+        finally:
+            conn.close()
+
+
+class ChargeDB:
+    @staticmethod
+    def get_by_resident(resident_id):
+        conn = get_connection()
+        rows = conn.execute("SELECT * FROM charges WHERE resident_id=? ORDER BY echeance DESC", (resident_id,)).fetchall()
+        conn.close()
+        return rows_to_list(rows)
+
+    @staticmethod
+    def get_all_with_residents():
+        conn = get_connection()
+        rows = conn.execute(
+            "SELECT c.*,r.nom||' '||r.prenom AS resident_nom,r.unite FROM charges c JOIN residents r ON c.resident_id=r.id ORDER BY c.echeance DESC"
+        ).fetchall()
+        conn.close()
+        return rows_to_list(rows)
+
+    @staticmethod
+    def get_by_id(charge_id):
+        conn = get_connection()
+        row = conn.execute("SELECT * FROM charges WHERE id=?", (charge_id,)).fetchone()
+        conn.close()
+        return row_to_dict(row)
+
+    @staticmethod
+    def pay_online(charge_id, montant, resident_id):
+        conn = get_connection()
+        charge = row_to_dict(conn.execute("SELECT * FROM charges WHERE id=?", (charge_id,)).fetchone())
+        if not charge:
+            conn.close()
+            raise ValueError("Charge introuvable")
+        if charge["resident_id"] != resident_id:
+            conn.close()
+            raise PermissionError("Cette charge ne vous appartient pas")
+        if charge["statut"] == "paye":
+            conn.close()
+            raise ValueError("Cette charge est deja reglee")
+        if montant > charge["montant_restant"]:
+            conn.close()
+            raise ValueError(f"Le montant depasse le reste a payer ({charge['montant_restant']} DA)")
+        ref = generate_payment_ref("INN", charge_id)
+        nouveau_restant = max(0.0, round(charge["montant_restant"] - montant, 2))
+        statut = "paye" if nouveau_restant == 0 else "partiel"
+        conn.execute("UPDATE charges SET montant_restant=?,statut=?,date_paiement=CURRENT_TIMESTAMP WHERE id=?",
+                     (nouveau_restant, statut, charge_id))
+        conn.execute("INSERT INTO paiements (charge_id,resident_id,montant,methode,reference) VALUES (?,?,?,?,?)",
+                     (charge_id, resident_id, montant, "en_ligne", ref))
+        conn.execute("INSERT INTO notifications (resident_id,titre,contenu,type_notif) VALUES (?,?,?,?)",
+                     (resident_id, "Paiement confirme",
+                      f"Paiement de {montant:,.0f} DA confirme. Ref. : {ref}. Reste : {nouveau_restant:,.0f} DA.",
+                      "paiement"))
+        conn.commit()
+        conn.close()
+        return ref, nouveau_restant
 
     @staticmethod
     def pay_admin(charge_id, montant, note=""):
@@ -410,7 +686,7 @@ def init_db():
                           f"Bonjour, nous confirmons la reception de votre paiement de {montant:,.0f} DA. Reference : {ref}. Reste du : {nouveau_restant:,.0f} DA. Merci."))
         conn.commit()
         conn.close()
-        return ref, nouveau_restant
+        return ref, nouveau_restant, payment_id
 
     @staticmethod
     def create(resident_id, designation, montant, echeance):
@@ -443,14 +719,40 @@ def init_db():
     def get_paiement_by_id(paiement_id):
         conn = get_connection()
         row = conn.execute(
-            "SELECT p.*,c.designation,c.montant_total,r.nom||' '||r.prenom AS resident_nom,r.unite,r.telephone,r.email,res.nom AS residence_nom "
-            "FROM paiements p JOIN charges c ON p.charge_id=c.id "
+            "SELECT p.*,c.designation as charge_designation,c.montant as charge_montant,"
+            "c.montant_restant as charge_restant,"
+            "r.nom||' '||r.prenom as resident_nom,r.unite as resident_unite,"
+            "res.nom_complet as residence_nom "
+            "FROM paiements p "
+            "JOIN charges c ON p.charge_id=c.id "
             "JOIN residents r ON p.resident_id=r.id "
             "JOIN residences res ON r.residence_id=res.id "
-            "WHERE p.id=?", (paiement_id,)
+            "WHERE p.id=?",
+            (paiement_id,)
         ).fetchone()
         conn.close()
-        return row_to_dict(row)
+        if row:
+            d = dict(row)
+            d["date_paiement"] = str(d.get("date_paiement", ""))
+            return d
+        return None
+
+    @staticmethod
+    def get_all_for_export():
+        conn = get_connection()
+        rows = conn.execute("""
+            SELECT p.id, p.montant, p.methode, p.reference, p.date_paiement, p.note,
+                   c.montant_restant, c.statut,
+                   r.nom||' '||r.prenom AS resident_nom, r.unite,
+                   res.nom_complet AS residence_nom
+            FROM paiements p
+            JOIN charges c ON p.charge_id=c.id
+            JOIN residents r ON p.resident_id=r.id
+            JOIN residences res ON r.residence_id=res.id
+            ORDER BY p.date_paiement DESC
+        """).fetchall()
+        conn.close()
+        return rows_to_list(rows)
 
 
 class MessageDB:

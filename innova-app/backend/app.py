@@ -333,6 +333,12 @@ def get_paiement(paiement_id):
         return jsonify({"erreur": "Paiement introuvable"}), 404
     return jsonify(p)
 
+@app.route("/api/paiements/export", methods=["GET"])
+@role_requis("super_admin", "finance")
+def export_paiements():
+    rows = ChargeDB.get_all_for_export()
+    return jsonify(rows)
+
 
 # -- MESSAGES ------------------------------------------------------------------
 
