@@ -25,6 +25,18 @@ function LogoBatiments({ size = 24, stroke = '#fff' }) {
   )
 }
 
+function IconShield({ size = 24 }) {
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="#C41E1E" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2l7 4v5c0 5-3.5 9.7-7 11-3.5-1.3-7-6-7-11V6l7-4z"/><path d="M9 12l2 2 4-4" stroke="#fff" strokeWidth="2.2"/></svg>
+}
+
+function IconCoins({ size = 24 }) {
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="#B07D00" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="8"/><path d="M12 8v8"/><path d="M9 10h4.5a1.5 1.5 0 0 1 0 3H11"/><path d="M9 13.5h4.5a1.5 1.5 0 0 1 0 3H9"/></svg>
+}
+
+function IconMessageSquare({ size = 24 }) {
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="#7B5EA7" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3h18v14H6l-3 3V3z"/><path d="M8 9h8"/><path d="M8 13h6"/></svg>
+}
+
 const fmtDate = str => {
   if (!str) return '—'
   const d = new Date(str)
@@ -281,15 +293,34 @@ function PageAccueil({ setPage }) {
   )
 }
 
-function PageOperations() {
+function PageOperations({ setPage }) {
   const [data, setData] = useState(null)
+  const [alertes, setAlertes] = useState([])
+  const [requetes, setRequetes] = useState([])
   const [loading, setLoading] = useState(true)
-  useEffect(() => { get('/dashboard/operations').then(setData).catch(() => {}).finally(() => setLoading(false)) }, [])
+  useEffect(() => {
+    Promise.all([get('/dashboard/operations'), get('/alertes'), get('/requetes')])
+      .then(([d, al, rq]) => {
+        setData(d)
+        const sortedAlertes = [...(al || [])].sort((a, b) => new Date(b.date_creation) - new Date(a.date_creation)).slice(0, 3)
+        const sortedRequetes = [...(rq || [])].filter(r => r.statut === 'en_attente').sort((a, b) => new Date(b.date_creation) - new Date(a.date_creation)).slice(0, 3)
+        setAlertes(sortedAlertes)
+        setRequetes(sortedRequetes)
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [])
   if (loading) return <Spinner />
   if (!data) return <div className="card" style={{ padding: 40, textAlign: 'center', color: 'var(--muted)' }}>Erreur de chargement</div>
+  const alertCfg = {
+    danger:    { l: 'Urgence',      bg: '#FFF0F0', border: '#F49090', color: '#C41E1E' },
+    attention: { l: 'Attention',    bg: '#FFF8E6', border: '#F5C842', color: '#B07D00' },
+    info:      { l: 'Information',  bg: '#EBF3FF', border: '#90BBF3', color: '#1A5FB4' },
+    succes:    { l: 'Résolu',       bg: '#E6F9F0', border: '#6DD6A2', color: '#1A7E53' },
+  }
   return (
     <div>
-      <div className="page-title">Tableau de bord — Opérations</div>
+      <div className="page-title">Tableau de bord — Gestion</div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 14, marginBottom: 20 }}>
         {[
           { label: 'Requêtes ouvertes', val: data.requetes_ouvertes || 0, color: '#C41E1E', bg: '#FFECEC' },
@@ -304,21 +335,46 @@ function PageOperations() {
         ))}
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18 }}>
-        <div className="card" style={{ padding: 16 }}>
-          <h3 style={{ margin: '0 0 12px', fontSize: 14, fontWeight: 600 }}>Dernières alertes</h3>
-          {(data.alertes_recentes || []).length === 0 ? (
-            <div style={{ color: 'var(--muted)', fontSize: 13 }}>Aucune alerte</div>
-          ) : data.alertes_recentes.map(a => (
-            <div key={a.id} style={{ padding: '8px 0', borderBottom: '1px solid var(--border)', fontSize: 13 }}>
-              <strong>{a.titre}</strong>
-              <div style={{ color: 'var(--muted)', fontSize: 12 }}>{a.contenu}</div>
+        <div className="card" style={{ padding: 0 }}>
+          <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: 15, fontWeight: 700 }}>Dernières alertes</span>
+            <button onClick={() => setPage('alertes')} style={{ background: 'none', border: 'none', color: 'var(--red)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Voir tout →</button>
+          </div>
+          {(alertes || []).length === 0 ? (
+            <div style={{ padding: 30, textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>Aucune alerte</div>
+          ) : (
+            <div style={{ padding: 8 }}>
+              {alertes.map(a => {
+                const c = alertCfg[a.type_alerte] || alertCfg.info
+                return (
+                  <div key={a.id} style={{ padding: 12, borderRadius: 10, background: c.bg, borderLeft: `3px solid ${c.color}`, marginBottom: 8 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: c.color, marginBottom: 4 }}>{a.titre}</div>
+                    <div style={{ fontSize: 12, color: 'var(--text)', lineHeight: 1.5 }}>{a.contenu}</div>
+                    <div style={{ fontSize: 11, color: 'var(--hint)', marginTop: 6 }}>{fmtFull(a.date_creation)}</div>
+                  </div>
+                )
+              })}
             </div>
-          ))}
+          )}
         </div>
-        <div className="card" style={{ padding: 16 }}>
-          <h3 style={{ margin: '0 0 12px', fontSize: 14, fontWeight: 600 }}>Résidents actifs (7j)</h3>
-          <div style={{ fontSize: 36, fontWeight: 700, color: '#1A6BB5' }}>{data.residents_actifs_7j || 0}</div>
-          <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>ont envoyé un message cette semaine</div>
+        <div className="card" style={{ padding: 0 }}>
+          <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: 15, fontWeight: 700 }}>Requêtes en attente</span>
+            <button onClick={() => setPage('requetes')} style={{ background: 'none', border: 'none', color: 'var(--red)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Voir tout →</button>
+          </div>
+          {requetes.length === 0 ? (
+            <div style={{ padding: 30, textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>Aucune requête</div>
+          ) : (
+            <div style={{ padding: 8 }}>
+              {requetes.map(q => (
+                <div key={q.id} style={{ padding: 12, background: '#F8FAFC', borderRadius: 10, marginBottom: 8 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>{q.sujet}</div>
+                  <div style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.5, marginBottom: 6 }}>{q.contenu}</div>
+                  <div style={{ fontSize: 11, color: 'var(--hint)' }}>{q.resident_nom} · Unité {q.unite} · {fmtShort(q.date_creation)}</div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -1324,9 +1380,9 @@ export default function AdminApp() {
   const handleViewProfil = rid => { setProfilResidentId(rid); setPage('profil') }
 
   const roleCreds = {
-    super_admin: { email: 'admin@innovim.dz', mdp: 'admin123', label: 'Super Admin', icon: '🛡️', desc: 'Accès complet à toutes les fonctionnalités' },
-    finance:     { email: 'finance@innovim.dz', mdp: 'admin123', label: 'Finance', icon: '💰', desc: 'Gestion des charges et paiements' },
-    operations:  { email: 'operations@innovim.dz', mdp: 'admin123', label: 'Opérations', icon: '⚙️', desc: 'Messagerie, alertes et requêtes' },
+    super_admin: { email: 'admin@innovim.dz', mdp: 'admin123', label: 'Super Admin', desc: 'Accès complet à toutes les fonctionnalités' },
+    finance:     { email: 'finance@innovim.dz', mdp: 'admin123', label: 'Finance', desc: 'Gestion des charges et paiements' },
+    operations:  { email: 'operations@innovim.dz', mdp: 'admin123', label: 'Gestion', desc: 'Messagerie, alertes et requêtes' },
   }
 
   const toast = msg => setToastMsg(msg)
@@ -1423,7 +1479,9 @@ export default function AdminApp() {
                 textAlign: 'center', transition: 'all 0.15s',
               }}
             >
-              <div style={{ fontSize: 22, marginBottom: 4 }}>{cred.icon}</div>
+              <div style={{ marginBottom: 4 }}>
+                {key === 'super_admin' ? <IconShield /> : key === 'finance' ? <IconCoins /> : <IconMessageSquare />}
+              </div>
               <div style={{ fontSize: 12, fontWeight: 700, color: selectedRole === key ? '#C41E1E' : '#374151' }}>{cred.label}</div>
               <div style={{ fontSize: 10, color: '#9CA3AF', marginTop: 2, lineHeight: 1.3 }}>{cred.desc}</div>
             </button>
@@ -1596,7 +1654,7 @@ export default function AdminApp() {
   const ROLE_LABELS = {
     super_admin: 'Super Administrateur',
     finance: 'Finance',
-    operations: 'Opérations',
+    operations: 'Gestion',
     admin: 'Administrateur',
     resident: 'Résident',
   }
@@ -1841,13 +1899,13 @@ export default function AdminApp() {
   const navItems = navItemsAll.filter(([id]) => allowedPages.includes(id) && id !== 'profil')
 
   const pageTitles = {
-    accueil: role === 'finance' ? 'Finance' : role === 'operations' ? 'Opérations' : 'Tableau de bord',
+    accueil: role === 'finance' ? 'Finance' : role === 'operations' ? 'Gestion' : 'Tableau de bord',
     residents: 'Résidents', charges: 'Charges', messagerie: 'Messagerie',
     alertes: 'Alertes', requetes: 'Requêtes', analytiques: 'Analytiques'
   }
 
   const pageMap = {
-    accueil: role === 'operations' ? <PageOperations /> : role === 'finance' ? <PageFinance /> : <PageAccueil setPage={setPage} />,
+    accueil: role === 'operations' ? <PageOperations setPage={setPage} /> : role === 'finance' ? <PageFinance /> : <PageAccueil setPage={setPage} />,
     residents:  <PageResidents toast={toast} onOuvrirChat={ouvrirChatResident} onViewProfil={handleViewProfil} />,
     charges:    <PageCharges toast={toast} />,
     messagerie: <PageMessagerie resident={resident} toast={toast} residentInitial={chatResident} onCloseInitial={() => setChatResident(null)} />,
@@ -1902,7 +1960,7 @@ export default function AdminApp() {
         <div className="topbar">
           <div className="topbar-title">{pageTitles[currentPage]}</div>
           <div className="topbar-right">
-            <span className="topbar-badge">Administration · {role === 'super_admin' ? 'Super Admin' : role === 'operations' ? 'Opérations' : role === 'finance' ? 'Finance' : role}</span>
+            <span className="topbar-badge">Administration · {role === 'super_admin' ? 'Super Admin' : role === 'operations' ? 'Gestion' : role === 'finance' ? 'Finance' : role}</span>
             <div className="topbar-av">{inits(resident.prenom, resident.nom)}</div>
           </div>
         </div>
