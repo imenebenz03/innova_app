@@ -199,13 +199,13 @@ def get_resident(rid):
     return jsonify(row_to_dict(row))
 
 @app.route("/api/residents/<int:rid>/archiver", methods=["POST"])
-@role_requis("super_admin")
+@role_requis("super_admin", "operations")
 def archiver_resident(rid):
     ResidentDB.archive(rid)
     return jsonify({"succes": True, "message": "Résident archivé"})
 
 @app.route("/api/residents/<int:rid>/desarchiver", methods=["POST"])
-@role_requis("super_admin")
+@role_requis("super_admin", "operations")
 def desarchiver_resident(rid):
     ResidentDB.unarchive(rid)
     return jsonify({"succes": True, "message": "Résistant désarchivé"})
