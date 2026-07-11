@@ -63,6 +63,7 @@ def handle_options(path):
 # -- DECORATEURS ---------------------------------------------------------------
 
 STAFF_ROLES = ("super_admin", "operations", "finance", "admin")
+PAYMENT_METHODS = {"cash", "bank_card", "bank_transfer", "cheque"}
 
 def _normalize_role(role):
     return "super_admin" if role == "admin" else role
@@ -312,11 +313,13 @@ def payer_admin(charge_id):
         return jsonify({"erreur": "Donnees manquantes"}), 400
     try:
         montant = float(d.get("montant", 0))
-        note = d.get("note", "").strip()
+        methode = d.get("methode", "").strip()
         if montant <= 0:
             return jsonify({"erreur": "Montant invalide"}), 400
-        ref, restant, payment_id = ChargeDB.pay_admin(charge_id, montant, note)
-        return jsonify({"succes": True, "reference": ref, "montant_restant": restant, "paiement_id": payment_id})
+        if methode not in PAYMENT_METHODS:
+            return jsonify({"erreur": "Methode de paiement invalide"}), 400
+        ref, restant, payment_id = ChargeDB.pay_admin(charge_id, montant, methode)
+        return jsonify({"succes": True, "reference": ref, "montant_restant": restant, "paiement_id": payment_id, "methode": methode})
     except ValueError as e:
         return jsonify({"erreur": str(e)}), 400
 

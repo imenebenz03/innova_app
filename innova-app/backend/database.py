@@ -135,6 +135,14 @@ def rows_to_list(rows) -> list:
     return [dict(r) for r in rows]
 
 
+PAYMENT_METHOD_LABELS = {
+    "cash": "Cash",
+    "bank_card": "Bank Card",
+    "bank_transfer": "Bank Transfer",
+    "cheque": "Cheque",
+}
+
+
 def generate_payment_ref(prefix: str, charge_id: int) -> str:
     """Generate a unique, non-guessable payment reference."""
     token = secrets.token_hex(4).upper()
@@ -639,7 +647,9 @@ class ChargeDB:
         return ref, nouveau_restant
 
     @staticmethod
-    def pay_admin(charge_id, montant, note=""):
+    def pay_admin(charge_id, montant, methode="cash"):
+        if methode not in PAYMENT_METHOD_LABELS:
+            raise ValueError("Methode de paiement invalide")
         conn = get_connection()
         charge = row_to_dict(conn.execute("SELECT * FROM charges WHERE id=?", (charge_id,)).fetchone())
         if not charge:
@@ -657,11 +667,11 @@ class ChargeDB:
         conn.execute("UPDATE charges SET montant_restant=?,statut=?,date_paiement=CURRENT_TIMESTAMP WHERE id=?",
                      (nouveau_restant, statut, charge_id))
         conn.execute("INSERT INTO paiements (charge_id,resident_id,montant,methode,reference,note) VALUES (?,?,?,?,?,?)",
-                     (charge_id, charge["resident_id"], montant, "administration", ref, note))
+                     (charge_id, charge["resident_id"], montant, methode, ref, note))
         payment_id = conn.execute("SELECT LASTVAL()").fetchone()[0]
         conn.execute("INSERT INTO notifications (resident_id,titre,contenu,type_notif) VALUES (?,?,?,?)",
                      (charge["resident_id"], "Paiement enregistre par l'administration",
-                      f"Paiement de {montant:,.0f} DA enregistre a la reception. Ref. : {ref}. Reste : {nouveau_restant:,.0f} DA.",
+                      f"Paiement de {montant:,.0f} DA enregistre par {PAYMENT_METHOD_LABELS[methode]}. Ref. : {ref}. Reste : {nouveau_restant:,.0f} DA.",
                       "paiement"))
         
         # Send push notification for payment

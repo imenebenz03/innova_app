@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import html2pdf from 'html2pdf.js'
 import * as XLSX from 'xlsx'
 
 const API = 'https://innova-app.onrender.com/api'
@@ -14,6 +13,193 @@ async function api(method, path, body) {
 const get = p => api('GET', p)
 const post = (p, b) => api('POST', p, b)
 const del = p => api('DELETE', p)
+
+const COMPANY_NAME = 'BENZAAMIA PROMOTION'
+const A4_WIDTH = 595.28
+const A4_HEIGHT = 841.89
+const A4_MARGIN = 50
+const PAYMENT_METHODS = [
+  { value: 'cash', label: 'Cash (Espèce)' },
+  { value: 'bank_card', label: 'Bank Card' },
+  { value: 'bank_transfer', label: 'Bank Transfer (Virement)' },
+  { value: 'cheque', label: 'Cheque' },
+]
+
+const paymentMethodLabel = value => {
+  if (value === 'administration') return 'Administration'
+  if (value === 'en_ligne') return 'En ligne'
+  return PAYMENT_METHODS.find(method => method.value === value)?.label || value || '-'
+}
+
+const escapeHtml = value => String(value ?? '')
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;')
+  .replace(/'/g, '&#39;')
+
+const plainText = value => String(value ?? '')
+  .normalize('NFKD')
+  .replace(/[\u0300-\u036f]/g, '')
+  .replace(/[^\x20-\x7E\n]/g, ' ')
+  .replace(/[ \t]+/g, ' ')
+  .trim()
+
+const pdfEscape = value => plainText(value)
+  .replace(/\\/g, '\\\\')
+  .replace(/\(/g, '\\(')
+  .replace(/\)/g, '\\)')
+
+const fileSafe = value => plainText(value).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'document'
+
+const wrapText = (value, max = 82) => {
+  const words = plainText(value).split(/\s+/).filter(Boolean)
+  const lines = []
+  let line = ''
+  words.forEach(word => {
+    if (word.length > max) {
+      if (line) lines.push(line)
+      for (let i = 0; i < word.length; i += max) lines.push(word.slice(i, i + max))
+      line = ''
+      return
+    }
+    const next = line ? `${line} ${word}` : word
+    if (next.length > max) {
+      if (line) lines.push(line)
+      line = word
+    } else {
+      line = next
+    }
+  })
+  if (line) lines.push(line)
+  return lines.length ? lines : ['']
+}
+
+const buildPdfBlob = (title, blocks) => {
+  const pages = [[]]
+  let y = A4_HEIGHT - A4_MARGIN
+  const pushLine = (text = '', opts = {}) => {
+    const size = opts.size || 11
+    const gap = opts.gap ?? 6
+    const lineHeight = opts.lineHeight || Math.max(size + 5, 14)
+    const lines = opts.raw ? [text] : wrapText(text, opts.max || (size >= 16 ? 54 : 82))
+    lines.forEach(line => {
+      if (y < A4_MARGIN + lineHeight) {
+        pages.push([])
+        y = A4_HEIGHT - A4_MARGIN
+      }
+      pages[pages.length - 1].push({ text: line, y, size, bold: !!opts.bold })
+      y -= lineHeight
+    })
+    y -= gap
+  }
+
+  pushLine(COMPANY_NAME, { size: 10, bold: true, gap: 10, raw: true })
+  pushLine(title, { size: 18, bold: true, gap: 18 })
+  blocks.forEach(block => {
+    if (block.type === 'space') {
+      y -= block.size || 12
+    } else if (block.label) {
+      pushLine(`${block.label}: ${block.value ?? ''}`, { size: block.size || 11, bold: block.bold, gap: block.gap })
+    } else {
+      pushLine(block.value ?? '', { size: block.size || 11, bold: block.bold, gap: block.gap })
+    }
+  })
+
+  const pageContents = pages.map((lines, index) => {
+    const body = lines.map(line => {
+      const font = line.bold ? 'F2' : 'F1'
+      return `/${font} ${line.size} Tf\n1 0 0 1 ${A4_MARGIN} ${line.y.toFixed(2)} Tm\n(${pdfEscape(line.text)}) Tj`
+    }).join('\n')
+    const footer = `/F1 8 Tf\n1 0 0 1 ${A4_MARGIN} 28 Tm\n(${pdfEscape(`Page ${index + 1} / ${pages.length}`)}) Tj`
+    return `BT\n${body}\n${footer}\nET`
+  })
+
+  const objects = []
+  const add = value => {
+    objects.push(value)
+    return objects.length
+  }
+  const catalogRef = add('<< /Type /Catalog /Pages 2 0 R >>')
+  add('')
+  const fontRef = add('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>')
+  const boldFontRef = add('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>')
+  const contentRefs = pageContents.map(content => add(`<< /Length ${content.length} >>\nstream\n${content}\nendstream`))
+  const pageRefs = contentRefs.map(ref => add(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${A4_WIDTH} ${A4_HEIGHT}] /Resources << /Font << /F1 ${fontRef} 0 R /F2 ${boldFontRef} 0 R >> >> /Contents ${ref} 0 R >>`))
+  objects[1] = `<< /Type /Pages /Kids [${pageRefs.map(ref => `${ref} 0 R`).join(' ')}] /Count ${pageRefs.length} >>`
+
+  let pdf = '%PDF-1.4\n'
+  const offsets = [0]
+  objects.forEach((obj, index) => {
+    offsets.push(pdf.length)
+    pdf += `${index + 1} 0 obj\n${obj}\nendobj\n`
+  })
+  const xrefStart = pdf.length
+  pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`
+  offsets.slice(1).forEach(offset => { pdf += `${String(offset).padStart(10, '0')} 00000 n \n` })
+  pdf += `trailer\n<< /Size ${objects.length + 1} /Root ${catalogRef} 0 R >>\nstartxref\n${xrefStart}\n%%EOF`
+  const bytes = Uint8Array.from(pdf, ch => ch.charCodeAt(0))
+  return new Blob([bytes], { type: 'application/pdf' })
+}
+
+const downloadPdf = (filename, title, blocks) => {
+  const url = URL.createObjectURL(buildPdfBlob(title, blocks))
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename.endsWith('.pdf') ? filename : `${filename}.pdf`
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
+}
+
+const openPrintableDocument = (title, html) => {
+  const win = window.open('', '_blank', 'width=900,height=1100')
+  if (!win) return
+  win.document.write(`<!doctype html><html><head><title>${escapeHtml(title)}</title><style>
+    @page { size: A4; margin: 18mm; }
+    * { box-sizing: border-box; }
+    body { font-family: Arial, sans-serif; color: #151827; margin: 0; line-height: 1.55; }
+    .doc { min-height: 100vh; display: flex; flex-direction: column; }
+    .brand { font-size: 13px; font-weight: 700; letter-spacing: 1.4px; color: #C41E1E; text-transform: uppercase; }
+    h1 { margin: 18px 0 18px; font-size: 30px; text-transform: uppercase; letter-spacing: 0.8px; }
+    .meta { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 18px; padding: 14px 0; border-top: 1px solid #D7DCE5; border-bottom: 1px solid #D7DCE5; font-size: 13px; }
+    .label { color: #687083; font-weight: 700; text-transform: uppercase; font-size: 11px; display: block; margin-bottom: 2px; }
+    .content { margin-top: 28px; font-size: 17px; white-space: pre-wrap; }
+    .footer { margin-top: auto; padding-top: 40px; color: #687083; font-size: 11px; }
+    .receipt-total { font-size: 28px; font-weight: 800; color: #10B981; margin: 20px 0; }
+  </style></head><body><div class="doc">${html}</div><script>window.onload=()=>{window.focus();window.print()}</script></body></html>`)
+  win.document.close()
+}
+
+async function exportPaymentsExcel(toast) {
+  try {
+    const rows = await get('/paiements/export')
+    if (!rows.length) { toast('Aucun paiement à exporter'); return }
+    const data = rows.map(r => ({
+      'Résident': r.resident_nom || '',
+      'Appartement': r.unite || '',
+      'Résidence': r.residence_nom || '',
+      'Montant': r.montant || 0,
+      'Date': r.date_paiement ? new Date(r.date_paiement).toLocaleDateString('fr-DZ') : '',
+      'Méthode': r.methode === 'administration' ? 'Administration' : r.methode || '',
+      'Solde restant': r.montant_restant || 0,
+      'Statut': r.statut === 'paye' ? 'Payé' : r.statut === 'partiel' ? 'Partiel' : r.statut || ''
+    }))
+    const ws = XLSX.utils.json_to_sheet(data)
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Paiements')
+    ws['!cols'] = [
+      { wch: 25 }, { wch: 14 }, { wch: 20 },
+      { wch: 14 }, { wch: 14 }, { wch: 18 },
+      { wch: 14 }, { wch: 12 }
+    ]
+    XLSX.writeFile(wb, 'paiements.xlsx')
+    toast('Export réussi !')
+  } catch (e) {
+    toast('Erreur export: ' + e.message)
+  }
+}
 
 function LogoBatiments({ size = 24, stroke = '#fff' }) {
   return (
@@ -66,124 +252,6 @@ const fmtDA = val => {
 }
 const STAFF_ROLES = ['super_admin', 'operations', 'finance', 'admin']
 
-const PDF_STYLE = `
-  @page { margin: 15mm; size: A4; }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'Segoe UI', system-ui, sans-serif; color: #1a1a1a; line-height: 1.6; padding: 20px; }
-  .header { text-align: center; border-bottom: 2px solid #C41E1E; padding-bottom: 16px; margin-bottom: 24px; }
-  .header h1 { font-size: 22px; color: #C41E1E; margin-bottom: 4px; }
-  .header p { font-size: 12px; color: #666; }
-  .meta { display: flex; justify-content: space-between; font-size: 12px; color: #666; margin-bottom: 20px; }
-  .content { font-size: 14px; margin-bottom: 24px; white-space: pre-wrap; }
-  .footer { text-align: center; font-size: 11px; color: #999; border-top: 1px solid #ddd; padding-top: 12px; margin-top: 32px; }
-  .stamp { text-align: right; margin-top: 40px; font-size: 12px; color: #333; }
-  table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 13px; }
-  td, th { padding: 8px 12px; border: 1px solid #ddd; text-align: left; }
-  th { background: #f5f5f5; font-weight: 600; }
-  .label { color: #888; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
-  .value { font-weight: 600; font-size: 14px; }
-  .receipt-box { border: 2px solid #C41E1E; border-radius: 8px; padding: 20px; margin: 16px 0; }
-  .receipt-box h2 { color: #C41E1E; font-size: 18px; margin-bottom: 12px; }
-  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 12px 0; }
-`
-
-function downloadPDF(htmlContent, filename) {
-  const div = document.createElement('div')
-  div.innerHTML = `<style>${PDF_STYLE}</style>${htmlContent}`
-  div.style.position = 'fixed'
-  div.style.left = '-9999px'
-  div.style.top = '0'
-  div.style.width = '210mm'
-  div.style.background = '#fff'
-  document.body.appendChild(div)
-  html2pdf().from(div).set({
-    margin: [15, 15, 15, 15],
-    filename,
-    image: { type: 'jpeg', quality: 0.98 },
-    html2canvas: { scale: 2, useCORS: true, letterRendering: true },
-    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-  }).save().then(() => {
-    document.body.removeChild(div)
-  }).catch(() => {
-    document.body.removeChild(div)
-  })
-}
-
-function printAlert(a) {
-  const typeLabel = { danger: 'Urgence', attention: 'Attention', info: 'Information', succes: 'Résolu' }[a.type_alerte] || 'Information'
-  const html = `
-    <div class="header">
-      <h1>AVIS ${typeLabel.toUpperCase()}</h1>
-      <p>${fmtFull(a.date_creation)}</p>
-    </div>
-    <div class="meta">
-      <span>Réf: AL-${String(a.id).padStart(4, '0')}</span>
-      <span>Publié par: ${a.auteur_nom}</span>
-    </div>
-    <h2 style="font-size:18px;margin-bottom:12px">${a.titre}</h2>
-    <div class="content">${a.contenu}</div>
-    ${a.date_publication ? `<div class="meta"><span>Publiée le: ${fmtFull(a.date_publication)}</span></div>` : ''}
-    <div class="footer">Document généré par INNOVA — Administration BENZAAMIA PROMOTION</div>
-  `
-  downloadPDF(html, `avis-AL-${String(a.id).padStart(4, '0')}.pdf`)
-}
-
-function printReceipt(p) {
-  const html = `
-    <div class="header">
-      <h1>REÇU DE PAIEMENT</h1>
-      <p>N° ${p.reference}</p>
-    </div>
-    <div class="receipt-box">
-      <h2>BENZAAMIA PROMOTION</h2>
-      <div class="grid-2">
-        <div><div class="label">Résident</div><div class="value">${p.resident_nom}</div></div>
-        <div><div class="label">Unité</div><div class="value">${p.resident_unite}</div></div>
-        <div><div class="label">Résidence</div><div class="value">${p.residence_nom}</div></div>
-        <div><div class="label">Date de paiement</div><div class="value">${fmtFull(p.date_paiement)}</div></div>
-      </div>
-      <table>
-        <tr><th>Désignation</th><th>Montant</th></tr>
-        <tr><td>${p.charge_designation}</td><td style="text-align:right;font-weight:700">${fmtDA(p.montant)}</td></tr>
-      </table>
-      <div style="text-align:right;font-size:16px;font-weight:700;margin-top:8px">Total: ${fmtDA(p.montant)}</div>
-      ${p.note ? `<div style="margin-top:12px"><span class="label">Note:</span> ${p.note}</div>` : ''}
-    </div>
-    <div class="stamp">Cachet & signature</div>
-    <div class="footer">Document généré par INNOVA — Administration BENZAAMIA PROMOTION</div>
-  `
-  downloadPDF(html, `recu-${p.reference || 'paiement'}.pdf`)
-}
-
-async function exportPaymentsExcel(toast) {
-  try {
-    const rows = await get('/paiements/export')
-    if (!rows.length) { toast('Aucun paiement à exporter'); return }
-    const data = rows.map(r => ({
-      'Résident': r.resident_nom || '',
-      'Appartement': r.unite || '',
-      'Résidence': r.residence_nom || '',
-      'Montant': r.montant || 0,
-      'Date': r.date_paiement ? new Date(r.date_paiement).toLocaleDateString('fr-DZ') : '',
-      'Méthode': r.methode === 'administration' ? 'Administration' : r.methode || '',
-      'Solde restant': r.montant_restant || 0,
-      'Statut': r.statut === 'paye' ? 'Payé' : r.statut === 'partiel' ? 'Partiel' : r.statut || ''
-    }))
-    const ws = XLSX.utils.json_to_sheet(data)
-    const wb = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(wb, ws, 'Paiements')
-    ws['!cols'] = [
-      { wch: 25 }, { wch: 14 }, { wch: 20 },
-      { wch: 14 }, { wch: 14 }, { wch: 18 },
-      { wch: 14 }, { wch: 12 }
-    ]
-    XLSX.writeFile(wb, 'paiements.xlsx')
-    toast('Export réussi !')
-  } catch (e) {
-    toast('Erreur export: ' + e.message)
-  }
-}
-
 const rolePermissions = {
   super_admin: ['accueil', 'residents', 'charges', 'messagerie', 'alertes', 'requetes', 'analytiques', 'profil'],
   operations:  ['accueil', 'residents', 'messagerie', 'alertes', 'requetes', 'profil'],
@@ -222,7 +290,7 @@ function Modal({ titre, icone, onFermer, children, maxWidth = 480 }) {
   )
 }
 
-function AlerteCard({ a, onDel, onDelete }) {
+function AlerteCard({ a, onDel, onDelete, onPrintNotice, onDownloadNotice }) {
   const cfg = {
     danger:    { l: 'Urgence',      bg: '#FFF0F0', border: '#F49090', color: '#C41E1E', dot: '#E53E3E' },
     attention: { l: 'Attention',    bg: '#FFF8E6', border: '#F5C842', color: '#B07D00', dot: '#D97706' },
@@ -263,11 +331,13 @@ function AlerteCard({ a, onDel, onDelete }) {
             </div>
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 8, marginLeft: 12, flexShrink: 0 }}>
-          <button onClick={() => printAlert(a)} title="Generate Printable Notice" style={{ background: 'none', border: '1px solid '+c.color+'40', borderRadius: 8, cursor: 'pointer', padding: '6px 10px', fontSize: 11, fontWeight: 600, color: c.color, display: 'flex', alignItems: 'center', gap: 4 }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
-            Generate Printable Notice
-          </button>
+        <div style={{ display: 'flex', gap: 8, marginLeft: 12, flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+          {onPrintNotice && (
+            <button onClick={onPrintNotice} title="Generer un avis imprimable" style={{ background: '#fff', border: '1px solid var(--border)', cursor: 'pointer', fontSize: 11, padding: '5px 8px', borderRadius: 6, fontWeight: 600, color: 'var(--text)' }}>Avis</button>
+          )}
+          {onDownloadNotice && (
+            <button onClick={onDownloadNotice} title="Exporter en PDF A4" style={{ background: '#fff', border: '1px solid var(--border)', cursor: 'pointer', fontSize: 11, padding: '5px 8px', borderRadius: 6, fontWeight: 600, color: 'var(--red)' }}>PDF A4</button>
+          )}
           {onDel && (
             <button onClick={onDel} title="Archiver" style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, padding: 4 }}>✓</button>
           )}
@@ -718,12 +788,12 @@ function PageCharges({ toast }) {
   const [loading, setLoading] = useState(true)
   const [modal, setModal] = useState(null)
   const [settingsModal, setSettingsModal] = useState(false)
-  const [paiementForm, setPaiementForm] = useState({ montant: '', note: '' })
+  const [paiementForm, setPaiementForm] = useState({ montant: '', methode: 'cash' })
+  const [receipt, setReceipt] = useState(null)
   const [chargeSearch, setChargeSearch] = useState('')
   const [settingsForm, setSettingsForm] = useState({ montant: '15000' })
   const [activeTab, setActiveTab] = useState('actives')
   const [envoi, setEnvoi] = useState(false)
-  const [lastReceipt, setLastReceipt] = useState(null)
   
   useEffect(() => { charger(); chargerSettings() }, [])
   
@@ -757,6 +827,41 @@ function PageCharges({ toast }) {
   
   const statuts = { en_attente: { l: 'En attente', c: '#F59E0B' }, paye: { l: 'Payé', c: '#10B981' }, partiel: { l: 'Partiel', c: '#6366F1' }, }
   const getStatut = s => statuts[s] || statuts.en_attente
+
+  const receiptBlocks = data => [
+    { label: 'Reference', value: data.reference, bold: true },
+    { label: 'Resident', value: data.charge.resident_nom },
+    { label: 'Unite', value: data.charge.unite || '-' },
+    { label: 'Designation', value: data.charge.designation },
+    { label: 'Date de paiement', value: fmtFull(data.date) },
+    { label: 'Methode', value: paymentMethodLabel(data.methode) },
+    { label: 'Montant paye', value: fmtDA(data.montant), bold: true },
+    { label: 'Reste a payer', value: fmtDA(data.montant_restant) },
+    { type: 'space', size: 18 },
+    { value: 'Recu genere automatiquement apres enregistrement du paiement.', size: 9 },
+  ]
+
+  const imprimerRecu = data => {
+    openPrintableDocument(`Recu - ${data.reference}`, `
+      <div class="brand">${escapeHtml(COMPANY_NAME)}</div>
+      <h1>Recu de paiement</h1>
+      <div class="receipt-total">${escapeHtml(fmtDA(data.montant))}</div>
+      <div class="meta">
+        <div><span class="label">Reference</span>${escapeHtml(data.reference)}</div>
+        <div><span class="label">Date</span>${escapeHtml(fmtFull(data.date))}</div>
+        <div><span class="label">Resident</span>${escapeHtml(data.charge.resident_nom)}</div>
+        <div><span class="label">Unite</span>${escapeHtml(data.charge.unite || '-')}</div>
+        <div><span class="label">Designation</span>${escapeHtml(data.charge.designation)}</div>
+        <div><span class="label">Methode</span>${escapeHtml(paymentMethodLabel(data.methode))}</div>
+        <div><span class="label">Reste a payer</span>${escapeHtml(fmtDA(data.montant_restant))}</div>
+      </div>
+      <div class="footer">Recu genere depuis INNOVA - ${escapeHtml(COMPANY_NAME)}</div>
+    `)
+  }
+
+  const telechargerRecuPdf = data => {
+    downloadPdf(`recu-${fileSafe(data.reference)}.pdf`, 'Recu de paiement', receiptBlocks(data))
+  }
   
   const chargesActives = charges.filter(c => c.statut !== 'paye')
   const chargesHistory = charges.filter(c => c.statut === 'paye')
@@ -770,20 +875,31 @@ function PageCharges({ toast }) {
       toast('Veuillez entrer un montant valide')
       return
     }
+    if (!PAYMENT_METHODS.some(method => method.value === paiementForm.methode)) {
+      toast('Veuillez choisir une methode de paiement')
+      return
+    }
     setEnvoi(true)
     try {
-      const r = await post(`/charges/${modal.id}/payer-admin`, {
-        montant: parseFloat(paiementForm.montant),
-        note: paiementForm.note
+      const charge = modal
+      const montant = parseFloat(paiementForm.montant)
+      const res = await post(`/charges/${charge.id}/payer-admin`, {
+        montant,
+        methode: paiementForm.methode
       })
-      toast('Paiement enregistré avec succès !')
-      if (r.paiement_id) {
-        const p = await get(`/paiements/${r.paiement_id}`)
-        setLastReceipt(p)
-        setTimeout(() => { try { printReceipt(p) } catch (e) { toast('Erreur génération PDF: '+e.message) } }, 500)
+      const receiptData = {
+        charge,
+        montant,
+        methode: res.methode || paiementForm.methode,
+        reference: res.reference || `PAY-${charge.id}-${Date.now()}`,
+        montant_restant: res.montant_restant ?? Math.max((charge.montant_restant || 0) - montant, 0),
+        date: new Date().toISOString(),
       }
+      toast('Paiement enregistré avec succès !')
+      setReceipt(receiptData)
+      setTimeout(() => { try { telechargerRecuPdf(receiptData) } catch (e) { toast('Erreur génération PDF: '+e.message) } }, 500)
       setModal(null)
-      setPaiementForm({ montant: '', note: '' })
+      setPaiementForm({ montant: '', methode: 'cash' })
       charger()
     } catch (err) { toast(err.message) } finally { setEnvoi(false) }
   }
@@ -794,12 +910,6 @@ function PageCharges({ toast }) {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
         <div className="page-title">Charges</div>
         <div style={{ display: 'flex', gap: 10 }}>
-          {lastReceipt && (
-            <button className="btn btn-green" onClick={() => { printReceipt(lastReceipt); setLastReceipt(null) }} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
-              Télécharger le reçu (PDF)
-            </button>
-          )}
           <button className="btn btn-outline" onClick={() => setSettingsModal(true)} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             ⚙️ Montant mensuel
           </button>
@@ -865,7 +975,7 @@ function PageCharges({ toast }) {
                     <td><span style={{ background: getStatut(c.statut).c + '20', color: getStatut(c.statut).c, padding: '4px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600 }}>{getStatut(c.statut).l}</span></td>
                     <td>
                       {c.statut !== 'paye' && (
-                        <button className="btn btn-green" style={{ padding: '6px 12px', fontSize: 11 }} onClick={() => { setModal(c); setPaiementForm({ montant: c.montant_restant.toString(), note: '' }) }}>
+                        <button className="btn btn-green" style={{ padding: '6px 12px', fontSize: 11 }} onClick={() => { setModal(c); setPaiementForm({ montant: c.montant_restant.toString(), methode: 'cash' }) }}>
                           💳 Enregistrer paiement
                         </button>
                       )}
@@ -899,13 +1009,27 @@ function PageCharges({ toast }) {
               />
             </div>
             <div className="form-group">
-              <label className="form-label">Note (optionnelle)</label>
-              <input 
-                className="form-input" 
-                value={paiementForm.note}
-                onChange={e => setPaiementForm(f => ({ ...f, note: e.target.value }))}
-                placeholder="Ex: Paiement en espèces"
-              />
+              <label className="form-label">Methode de paiement *</label>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                {PAYMENT_METHODS.map(method => (
+                  <label key={method.value} style={{
+                    display: 'flex', alignItems: 'center', gap: 10, padding: '11px 12px',
+                    borderRadius: 10, border: `1.5px solid ${paiementForm.methode === method.value ? '#10B981' : 'var(--border)'}`,
+                    background: paiementForm.methode === method.value ? '#E6F9F0' : '#fff',
+                    cursor: 'pointer', fontSize: 13, fontWeight: 600, color: 'var(--text)'
+                  }}>
+                    <input
+                      type="radio"
+                      name="payment-method"
+                      value={method.value}
+                      checked={paiementForm.methode === method.value}
+                      onChange={e => setPaiementForm(f => ({ ...f, methode: e.target.value }))}
+                      required
+                    />
+                    {method.label}
+                  </label>
+                ))}
+              </div>
             </div>
             <div className="modal-btns">
               <button type="button" className="btn btn-outline" onClick={() => setModal(null)}>Annuler</button>
@@ -914,6 +1038,36 @@ function PageCharges({ toast }) {
               </button>
             </div>
           </form>
+        </Modal>
+      )}
+      {receipt && (
+        <Modal titre="Recu genere" icone="📄" onFermer={() => setReceipt(null)}>
+          <div style={{ background: 'var(--bg)', borderRadius: 12, padding: 16, marginBottom: 16, border: '1px solid var(--border)' }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 6 }}>Reference</div>
+            <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--text)' }}>{receipt.reference}</div>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+            {[
+              ['Resident', receipt.charge.resident_nom],
+              ['Unite', receipt.charge.unite || '-'],
+              ['Montant paye', fmtDA(receipt.montant)],
+              ['Reste a payer', fmtDA(receipt.montant_restant)],
+              ['Date', fmtFull(receipt.date)],
+              ['Methode', paymentMethodLabel(receipt.methode)],
+            ].map(([label, value]) => (
+              <div key={label} style={{ padding: '12px 14px', borderRadius: 10, background: '#fff', border: '1px solid var(--border)' }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 4 }}>{label}</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{value}</div>
+              </div>
+            ))}
+          </div>
+          <div style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.6, marginBottom: 18 }}>
+            {receipt.charge.designation}
+          </div>
+          <div className="modal-btns">
+            <button type="button" className="btn btn-outline" onClick={() => imprimerRecu(receipt)}>Generer recu imprimable</button>
+            <button type="button" className="btn btn-green" style={{ flex: 2 }} onClick={() => telechargerRecuPdf(receipt)}>Telecharger PDF</button>
+          </div>
         </Modal>
       )}
       {settingsModal && (
@@ -943,27 +1097,21 @@ function PageCharges({ toast }) {
       {activeTab === 'history' && (
         chargesHistory.length === 0 ? <div style={{ padding: 40, textAlign: 'center', color: 'var(--muted)' }}>Aucun historique</div> : (
           <div className="card" style={{ padding: 0, borderRadius: 16, overflow: 'hidden', opacity: 0.85 }}>
-              <table>
-                  <thead><tr><th>Désignation</th><th>Résident</th><th>Montant payé</th><th>Date paiement</th><th>Statut</th><th></th></tr></thead>
-                  <tbody>
-                    {filteredHistory.length === 0 ? (
-                      <tr><td colSpan={6} style={{ textAlign: 'center', padding: 40, color: 'var(--muted)', fontSize: 13 }}>Aucun résultat</td></tr>
-                    ) : filteredHistory.map(c => (
-                      <tr key={c.id}>
-                        <td style={{ fontWeight: 600 }}>{c.designation}</td>
-                        <td>{c.resident_nom}</td>
-                        <td style={{ fontWeight: 700, color: '#10B981' }}>{fmtDA(c.montant_total)}</td>
-                        <td style={{ color: 'var(--muted)', fontSize: 12 }}>{fmtFull(c.date_paiement)}</td>
-                        <td><span style={{ background: '#10B98120', color: '#10B981', padding: '4px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600 }}>Payé</span></td>
-                        <td>
-                          <button onClick={async () => { try { const ps = await get(`/charges/${c.id}/paiements`); const p = await get(`/paiements/${ps[0].id}`); printReceipt(p) } catch {} }} title="Télécharger le reçu en PDF (A4)" style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', padding: '6px 10px', fontSize: 12, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
-                            PDF Reçu
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
+            <table>
+              <thead><tr><th>Désignation</th><th>Résident</th><th>Montant payé</th><th>Date paiement</th><th>Statut</th></tr></thead>
+              <tbody>
+                {filteredHistory.length === 0 ? (
+                  <tr><td colSpan={5} style={{ textAlign: 'center', padding: 40, color: 'var(--muted)', fontSize: 13 }}>Aucun résultat</td></tr>
+                ) : filteredHistory.map(c => (
+                  <tr key={c.id}>
+                    <td style={{ fontWeight: 600 }}>{c.designation}</td>
+                    <td>{c.resident_nom}</td>
+                    <td style={{ fontWeight: 700, color: '#10B981' }}>{fmtDA(c.montant_total)}</td>
+                    <td style={{ color: 'var(--muted)', fontSize: 12 }}>{fmtFull(c.date_paiement)}</td>
+                    <td><span style={{ background: '#10B98120', color: '#10B981', padding: '4px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600 }}>Payé</span></td>
+                  </tr>
+                ))}
+              </tbody>
             </table>
           </div>
         )
@@ -1198,7 +1346,7 @@ function PageMessagerie({ resident, toast, residentInitial, onCloseInitial }) {
   )
 }
 
-function PageAlertes({ toast, role }) {
+function PageAlertes({ toast }) {
   const [alertes, setAlertes] = useState([])
   const [alertesHistory, setAlertesHistory] = useState([])
   const [loading, setLoading] = useState(true)
@@ -1258,6 +1406,45 @@ function PageAlertes({ toast, role }) {
       charger()
     } catch (err) { toast(err.message) }
   }
+
+  const residenceLabel = residenceId => {
+    if (!residenceId) return 'Toutes les residences'
+    return residences.find(r => String(r.id) === String(residenceId))?.nom || `Residence ${residenceId}`
+  }
+
+  const alertTypeLabel = value => alertTypes.find(t => t.value === value)?.label || 'Information'
+
+  const noticeBlocks = a => [
+    { label: 'Titre', value: a.titre, bold: true },
+    { label: 'Type', value: alertTypeLabel(a.type_alerte) },
+    { label: 'Residence', value: residenceLabel(a.residence_id) },
+    { label: 'Date de creation', value: fmtFull(a.date_creation) },
+    ...(a.date_publication ? [{ label: 'Date de publication', value: fmtFull(a.date_publication) }] : []),
+    { type: 'space', size: 8 },
+    { value: 'Message', bold: true, size: 12 },
+    { value: a.contenu, size: 12, gap: 10 },
+    { type: 'space', size: 18 },
+    { value: 'Cet avis est genere depuis le tableau de bord INNOVA.', size: 9 },
+  ]
+
+  const genererAvis = a => {
+    openPrintableDocument(`Avis - ${a.titre}`, `
+      <div class="brand">${escapeHtml(COMPANY_NAME)}</div>
+      <h1>Avis aux residents</h1>
+      <div class="meta">
+        <div><span class="label">Titre</span>${escapeHtml(a.titre)}</div>
+        <div><span class="label">Type</span>${escapeHtml(alertTypeLabel(a.type_alerte))}</div>
+        <div><span class="label">Residence</span>${escapeHtml(residenceLabel(a.residence_id))}</div>
+        <div><span class="label">Date</span>${escapeHtml(fmtFull(a.date_publication || a.date_creation))}</div>
+      </div>
+      <div class="content">${escapeHtml(a.contenu)}</div>
+      <div class="footer">Avis genere depuis INNOVA - ${escapeHtml(fmtFull(new Date().toISOString()))}</div>
+    `)
+  }
+
+  const exporterAvisPdf = a => {
+    downloadPdf(`avis-${fileSafe(a.titre)}.pdf`, 'Avis aux residents', noticeBlocks(a))
+  }
   
   if (loading) return <Spinner />
   return (
@@ -1298,7 +1485,7 @@ function PageAlertes({ toast, role }) {
         alertes.length === 0 ? <div style={{ padding: 40, textAlign: 'center', color: 'var(--muted)' }}>Aucune alerte active</div> : (
           <div style={{ display: 'grid', gap: 12 }}>
             {alertes.map(a => (
-              <AlerteCard key={a.id} a={a} onDel={() => archiver(a.id)} onDelete={() => supprimer(a.id)} />
+              <AlerteCard key={a.id} a={a} onDel={() => archiver(a.id)} onDelete={() => supprimer(a.id)} onPrintNotice={() => genererAvis(a)} onDownloadNotice={() => exporterAvisPdf(a)} />
             ))}
           </div>
         )
@@ -1306,7 +1493,7 @@ function PageAlertes({ toast, role }) {
         alertesHistory.length === 0 ? <div style={{ padding: 40, textAlign: 'center', color: 'var(--muted)' }}>Aucun historique</div> : (
           <div style={{ display: 'grid', gap: 12, opacity: 0.7 }}>
             {alertesHistory.map(a => (
-              <AlerteCard key={a.id} a={a} onDelete={() => supprimer(a.id)} />
+              <AlerteCard key={a.id} a={a} onDelete={() => supprimer(a.id)} onPrintNotice={() => genererAvis(a)} onDownloadNotice={() => exporterAvisPdf(a)} />
             ))}
           </div>
         )
@@ -1989,7 +2176,7 @@ export default function AdminApp() {
                               <td style={{ maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.designation}</td>
                               <td style={{ fontWeight: 600, color: 'var(--green)' }}>{fmtDA(p.montant)}</td>
                               <td style={{ fontSize: 10, color: 'var(--hint)' }}>{p.reference || '—'}</td>
-                              <td><span className="pill pill-blue">{p.methode === 'administration' ? 'Admin' : 'En ligne'}</span></td>
+                              <td><span className="pill pill-blue">{paymentMethodLabel(p.methode)}</span></td>
                             </tr>
                           ))}
                         </tbody>
@@ -2055,7 +2242,7 @@ export default function AdminApp() {
     residents:  <PageResidents toast={toast} onOuvrirChat={ouvrirChatResident} onViewProfil={handleViewProfil} />,
     charges:    <PageCharges toast={toast} />,
     messagerie: <PageMessagerie resident={resident} toast={toast} residentInitial={chatResident} onCloseInitial={() => setChatResident(null)} />,
-    alertes:    <PageAlertes toast={toast} role={role} />,
+    alertes:    <PageAlertes toast={toast} />,
     requetes:   <PageRequetes toast={toast} />,
     analytiques: <PageAnalytiques />,
     profil: <PageProfil residentId={profilResidentId} role={role} toast={toast} />,
