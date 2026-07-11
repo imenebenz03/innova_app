@@ -183,6 +183,11 @@ def creer_resident():
     )
     return jsonify({"succes": ok, "message": msg}), (201 if ok else 400)
 
+@app.route("/api/residents/archives", methods=["GET"])
+@staff_requis
+def get_archived_residents():
+    return jsonify(ResidentDB.get_archived())
+
 @app.route("/api/residents/<int:rid>", methods=["GET"])
 @staff_requis
 def get_resident(rid):
@@ -192,6 +197,18 @@ def get_resident(rid):
     if not row:
         return jsonify({"erreur": "Resident introuvable"}), 404
     return jsonify(row_to_dict(row))
+
+@app.route("/api/residents/<int:rid>/archiver", methods=["POST"])
+@role_requis("super_admin")
+def archiver_resident(rid):
+    ResidentDB.archive(rid)
+    return jsonify({"succes": True, "message": "Résident archivé"})
+
+@app.route("/api/residents/<int:rid>/desarchiver", methods=["POST"])
+@role_requis("super_admin")
+def desarchiver_resident(rid):
+    ResidentDB.unarchive(rid)
+    return jsonify({"succes": True, "message": "Résistant désarchivé"})
 
 @app.route("/api/residents/<int:rid>/finances", methods=["GET"])
 @role_requis("super_admin", "finance")

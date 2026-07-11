@@ -357,6 +357,10 @@ def init_db():
         c.execute("ALTER TABLE alertes ADD COLUMN IF NOT EXISTS date_publication TEXT")
     except:
         pass
+    try:
+        c.execute("ALTER TABLE residents ADD COLUMN IF NOT EXISTS archived INTEGER NOT NULL DEFAULT 0")
+    except:
+        pass
 
     resident_count = c.execute("SELECT COUNT(*) FROM residents WHERE role='resident'").fetchone()[0]
     if resident_count == 0:
@@ -546,10 +550,33 @@ class ResidentDB:
     def get_all():
         conn = get_connection()
         rows = conn.execute(
-            "SELECT r.id,r.nom,r.prenom,r.unite,r.etage,r.telephone,r.role,r.date_inscription,res.nom_complet as residence_nom FROM residents r LEFT JOIN residences res ON r.residence_id=res.id WHERE r.role NOT IN ('super_admin','operations','finance','admin') ORDER BY r.unite"
+            "SELECT r.id,r.nom,r.prenom,r.unite,r.etage,r.telephone,r.role,r.date_inscription,res.nom_complet as residence_nom FROM residents r LEFT JOIN residences res ON r.residence_id=res.id WHERE r.role NOT IN ('super_admin','operations','finance','admin') AND (r.archived IS NULL OR r.archived=0) ORDER BY r.unite"
         ).fetchall()
         conn.close()
         return rows_to_list(rows)
+
+    @staticmethod
+    def get_archived():
+        conn = get_connection()
+        rows = conn.execute(
+            "SELECT r.id,r.nom,r.prenom,r.unite,r.etage,r.telephone,r.role,r.date_inscription,res.nom_complet as residence_nom FROM residents r LEFT JOIN residences res ON r.residence_id=res.id WHERE r.role NOT IN ('super_admin','operations','finance','admin') AND r.archived=1 ORDER BY r.unite"
+        ).fetchall()
+        conn.close()
+        return rows_to_list(rows)
+
+    @staticmethod
+    def archive(resident_id):
+        conn = get_connection()
+        conn.execute("UPDATE residents SET archived=1 WHERE id=?", (resident_id,))
+        conn.commit()
+        conn.close()
+
+    @staticmethod
+    def unarchive(resident_id):
+        conn = get_connection()
+        conn.execute("UPDATE residents SET archived=0 WHERE id=?", (resident_id,))
+        conn.commit()
+        conn.close()
 
     @staticmethod
     def get_by_id(rid):

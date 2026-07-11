@@ -656,19 +656,22 @@ function PageFinance() {
 
 function PageResidents({ toast, onOuvrirChat, onViewProfil }) {
   const [residents, setResidents] = useState([])
+  const [archives, setArchives] = useState([])
   const [loading, setLoading] = useState(true)
   const [modal, setModal] = useState(false)
   const [selectedResident, setSelectedResident] = useState(null)
   const [search, setSearch] = useState('')
+  const [showArchives, setShowArchives] = useState(false)
   const [form, setForm] = useState({ residence_id: '', nom: '', prenom: '', email: '', mot_de_passe: '', unite: '', etage: '', telephone: '' })
   const [envoi, setEnvoi] = useState(false)
   const champ = k => e => setForm(f => ({ ...f, [k]: e.target.value }))
-  const charger = async () => { setLoading(true); try { setResidents(await get('/residents')) } finally { setLoading(false) } }
+  const charger = async () => { setLoading(true); try { setResidents(await get('/residents')); setArchives(await get('/residents/archives')) } finally { setLoading(false) } }
   useEffect(() => { charger() }, [])
   const q = search.toLowerCase().trim()
+  const list = showArchives ? archives : residents
   const filtered = q
-    ? residents.filter(r => (r.nom + ' ' + r.prenom).toLowerCase().includes(q) || r.prenom.toLowerCase().includes(q) || r.nom.toLowerCase().includes(q) || (r.unite || '').toLowerCase().includes(q))
-    : residents
+    ? list.filter(r => (r.nom + ' ' + r.prenom).toLowerCase().includes(q) || r.prenom.toLowerCase().includes(q) || r.nom.toLowerCase().includes(q) || (r.unite || '').toLowerCase().includes(q))
+    : list
   const creer = async e => {
     e.preventDefault(); setEnvoi(true)
     try {
@@ -687,10 +690,16 @@ function PageResidents({ toast, onOuvrirChat, onViewProfil }) {
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
-        <div className="page-title">Résidents</div>
-        <button className="btn btn-red" onClick={() => setModal(true)} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span style={{ fontSize: 18, lineHeight: 1 }}>+</span> Ajouter un résident
-        </button>
+        <div className="page-title">{showArchives ? 'Résidents archivés' : 'Résidents'}</div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button className="btn btn-outline" onClick={() => { setShowArchives(!showArchives); setSearch('') }} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+            {showArchives ? 'Actifs' : `Archives (${archives.length})`}
+          </button>
+          <button className="btn btn-red" onClick={() => setModal(true)} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ fontSize: 18, lineHeight: 1 }}>+</span> Ajouter un résident
+          </button>
+        </div>
       </div>
       <div className="card" style={{ padding: 0, borderRadius: 16, overflow: 'hidden' }}>
         <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)' }}>
@@ -775,6 +784,15 @@ function PageResidents({ toast, onOuvrirChat, onViewProfil }) {
               <button type="button" className="btn btn-outline" style={{ width: '100%' }} onClick={() => { const r = selectedResident; setSelectedResident(null); onViewProfil(r.id) }}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: 6 }}><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Voir le profil
               </button>
+              {selectedResident.archived ? (
+                <button type="button" className="btn btn-outline" style={{ width: '100%', borderColor: '#10B981', color: '#10B981' }} onClick={async () => { try { await post(`/residents/${selectedResident.id}/desarchiver`); setSelectedResident(null); charger(); toast('Résident désarchivé') } catch (e) { toast(e.message) } }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: 6 }}><polyline points="1 12 5 16 11 6"/></svg> Restaurer
+                </button>
+              ) : (
+                <button type="button" className="btn btn-outline" style={{ width: '100%', borderColor: 'var(--red)', color: 'var(--red)' }} onClick={async () => { if (!confirm(`Archiver ${selectedResident.prenom} ${selectedResident.nom} ?`)) return; try { await post(`/residents/${selectedResident.id}/archiver`); setSelectedResident(null); charger(); toast('Résident archivé') } catch (e) { toast(e.message) } }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: 6 }}><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg> Archiver
+                </button>
+              )}
             </div>
           </div>
         </Modal>
