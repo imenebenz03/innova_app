@@ -209,7 +209,7 @@ def archiver_resident(rid):
 @role_requis("super_admin", "operations")
 def desarchiver_resident(rid):
     ResidentDB.unarchive(rid)
-    return jsonify({"succes": True, "message": "Résistant désarchivé"})
+    return jsonify({"succes": True, "message": "Résident restauré"})
 
 @app.route("/api/residents/<int:rid>/finances", methods=["GET"])
 @role_requis("super_admin", "finance")
@@ -701,9 +701,13 @@ def analytics():
     """).fetchall()
 
     mauvais = conn.execute("""
-        SELECT r.nom||' '||r.prenom AS nom, r.unite, SUM(c.montant_restant) AS total
+        SELECT r.id, r.nom||' '||r.prenom AS nom, r.unite, res.nom_complet,
+               SUM(c.montant_restant) AS total
         FROM charges c JOIN residents r ON c.resident_id=r.id
-        WHERE c.statut != 'paye' AND (r.archived IS NULL OR r.archived=0) GROUP BY r.id ORDER BY total DESC LIMIT 5
+        JOIN residences res ON r.residence_id=res.id
+        WHERE c.statut != 'paye' AND (r.archived IS NULL OR r.archived=0)
+        GROUP BY r.id, r.nom, r.prenom, r.unite, res.nom_complet
+        ORDER BY total DESC LIMIT 10
     """).fetchall()
 
     compound_fees = conn.execute("""
@@ -712,6 +716,34 @@ def analytics():
         JOIN residences res ON r.residence_id=res.id
         WHERE (r.archived IS NULL OR r.archived=0)
         GROUP BY res.nom_complet ORDER BY total DESC
+    """).fetchall()
+
+    monthly_financial_summary = conn.execute("""
+        WITH charge_months AS (
+            SELECT TO_CHAR(date_creation::timestamp, 'YYYY-MM') AS mois,
+                   COALESCE(SUM(montant_total),0) AS charges_created,
+                   COALESCE(SUM(montant_restant),0) AS remaining_amount
+            FROM charges
+            WHERE date_creation::timestamp >= CURRENT_TIMESTAMP - INTERVAL '6 months'
+            GROUP BY mois
+        ),
+        payment_months AS (
+            SELECT TO_CHAR(date_paiement::timestamp, 'YYYY-MM') AS mois,
+                   COALESCE(SUM(montant),0) AS amount_collected
+            FROM paiements
+            WHERE date_paiement::timestamp >= CURRENT_TIMESTAMP - INTERVAL '6 months'
+            GROUP BY mois
+        )
+        SELECT COALESCE(c.mois, p.mois) AS mois,
+               COALESCE(c.charges_created,0) AS charges_created,
+               COALESCE(p.amount_collected,0) AS amount_collected,
+               COALESCE(c.remaining_amount,0) AS remaining_amount,
+               CASE WHEN COALESCE(c.charges_created,0) > 0
+                    THEN ROUND(((COALESCE(p.amount_collected,0)::numeric / c.charges_created::numeric) * 100), 1)
+                    ELSE 0 END AS collection_percentage
+        FROM charge_months c
+        FULL OUTER JOIN payment_months p ON c.mois = p.mois
+        ORDER BY mois
     """).fetchall()
 
     occupied_total = conn.execute("SELECT COUNT(DISTINCT unite) FROM residents WHERE role='resident' AND (archived IS NULL OR archived=0)").fetchone()[0]
@@ -750,6 +782,7 @@ def analytics():
         "impayes": rows_to_list(impayes),
         "mauvais_payeurs": rows_to_list(mauvais),
         "compound_fees": rows_to_list(compound_fees),
+        "monthly_financial_summary": rows_to_list(monthly_financial_summary),
         "messages_7j": rows_to_list(messages),
         "total_residents": total_residents,
         "occupied_apartments": occupied_total,
@@ -833,12 +866,50 @@ def dashboard_finance():
         WHERE c.statut != 'paye' AND (r.archived IS NULL OR r.archived=0) ORDER BY c.montant_restant DESC LIMIT 10
     """).fetchall())
 
+    bad_payers = rows_to_list(conn.execute("""
+        SELECT r.id, r.nom||' '||r.prenom AS nom, r.unite, res.nom_complet,
+               SUM(c.montant_restant) AS total
+        FROM charges c JOIN residents r ON c.resident_id=r.id
+        JOIN residences res ON r.residence_id=res.id
+        WHERE c.statut != 'paye' AND (r.archived IS NULL OR r.archived=0)
+        GROUP BY r.id, r.nom, r.prenom, r.unite, res.nom_complet
+        ORDER BY total DESC LIMIT 10
+    """).fetchall())
+
     compound_fees = rows_to_list(conn.execute("""
         SELECT res.nom_complet, COALESCE(SUM(c.montant_total),0) AS total
         FROM charges c JOIN residents r ON c.resident_id=r.id
         JOIN residences res ON r.residence_id=res.id
         WHERE (r.archived IS NULL OR r.archived=0)
         GROUP BY res.nom_complet ORDER BY total DESC
+    """).fetchall())
+
+    monthly_financial_summary = rows_to_list(conn.execute("""
+        WITH charge_months AS (
+            SELECT TO_CHAR(date_creation::timestamp, 'YYYY-MM') AS mois,
+                   COALESCE(SUM(montant_total),0) AS charges_created,
+                   COALESCE(SUM(montant_restant),0) AS remaining_amount
+            FROM charges
+            WHERE date_creation::timestamp >= CURRENT_TIMESTAMP - INTERVAL '6 months'
+            GROUP BY mois
+        ),
+        payment_months AS (
+            SELECT TO_CHAR(date_paiement::timestamp, 'YYYY-MM') AS mois,
+                   COALESCE(SUM(montant),0) AS amount_collected
+            FROM paiements
+            WHERE date_paiement::timestamp >= CURRENT_TIMESTAMP - INTERVAL '6 months'
+            GROUP BY mois
+        )
+        SELECT COALESCE(c.mois, p.mois) AS mois,
+               COALESCE(c.charges_created,0) AS charges_created,
+               COALESCE(p.amount_collected,0) AS amount_collected,
+               COALESCE(c.remaining_amount,0) AS remaining_amount,
+               CASE WHEN COALESCE(c.charges_created,0) > 0
+                    THEN ROUND(((COALESCE(p.amount_collected,0)::numeric / c.charges_created::numeric) * 100), 1)
+                    ELSE 0 END AS collection_percentage
+        FROM charge_months c
+        FULL OUTER JOIN payment_months p ON c.mois = p.mois
+        ORDER BY mois
     """).fetchall())
 
     conn.close()
@@ -850,7 +921,9 @@ def dashboard_finance():
         "mensuel": mensuel,
         "derniers_paiements": derniers_paiements,
         "impayes": impayes,
+        "bad_payers": bad_payers,
         "compound_fees": compound_fees,
+        "monthly_financial_summary": monthly_financial_summary,
     })
 
 

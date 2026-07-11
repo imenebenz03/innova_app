@@ -19,16 +19,16 @@ const A4_WIDTH = 595.28
 const A4_HEIGHT = 841.89
 const A4_MARGIN = 50
 const PAYMENT_METHODS = [
-  { value: 'cash', label: 'Cash (Espèce)' },
-  { value: 'bank_card', label: 'Bank Card' },
-  { value: 'bank_transfer', label: 'Bank Transfer (Virement)' },
-  { value: 'cheque', label: 'Cheque' },
+  { value: 'cash', label: 'Espèce' },
+  { value: 'bank_card', label: 'Carte bancaire' },
+  { value: 'bank_transfer', label: 'Virement bancaire' },
+  { value: 'cheque', label: 'Chèque' },
 ]
 
 const paymentMethodLabel = value => {
   if (value === 'administration') return 'Administration'
   if (value === 'en_ligne') return 'En ligne'
-  return PAYMENT_METHODS.find(method => method.value === value)?.label || value || '-'
+  return PAYMENT_METHODS.find(method => method.value === value)?.label || value || 'Non renseigné'
 }
 
 const escapeHtml = value => String(value ?? '')
@@ -226,7 +226,7 @@ function IconMessageSquare({ size = 24 }) {
 }
 
 const fmtDate = str => {
-  if (!str) return '—'
+  if (!str) return 'Non renseigné'
   const d = new Date(str)
   if (isNaN(d)) return str
   const now = new Date()
@@ -237,17 +237,17 @@ const fmtDate = str => {
   return d.toLocaleDateString('fr-DZ', { day: 'numeric', month: 'short' })
 }
 const fmtFull = str => {
-  if (!str) return '—'
+  if (!str) return 'Non renseigné'
   const d = new Date(str)
   return isNaN(d) ? str : d.toLocaleDateString('fr-DZ', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
 const fmtShort = str => {
-  if (!str) return '—'
+  if (!str) return 'Non renseigné'
   const d = new Date(str)
   return isNaN(d) ? str : d.toLocaleDateString('fr-DZ', { day: 'numeric', month: 'short' })
 }
 const fmtDA = val => {
-  if (val == null || isNaN(val)) return '—'
+  if (val == null || isNaN(val)) return 'Non renseigné'
   return Number(val).toLocaleString('fr-DZ', { style: 'currency', currency: 'DZD', maximumFractionDigits: 0 })
 }
 const STAFF_ROLES = ['super_admin', 'operations', 'finance', 'admin']
@@ -282,7 +282,7 @@ function Modal({ titre, icone, onFermer, children, maxWidth = 480 }) {
           <button
             onClick={onFermer}
             style={{ background: 'var(--bg)', border: 'none', cursor: 'pointer', width: 32, height: 32, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)', fontSize: 16, fontWeight: 700 }}
-          >✕</button>
+          >x</button>
         </div>
         {children}
       </div>
@@ -333,7 +333,7 @@ function AlerteCard({ a, onDel, onDelete, onPrintNotice, onDownloadNotice }) {
         </div>
         <div style={{ display: 'flex', gap: 8, marginLeft: 12, flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
           {onPrintNotice && (
-            <button onClick={onPrintNotice} title="Generer un avis imprimable" style={{ background: '#fff', border: '1px solid var(--border)', cursor: 'pointer', fontSize: 11, padding: '5px 8px', borderRadius: 6, fontWeight: 600, color: 'var(--text)' }}>Avis</button>
+            <button onClick={onPrintNotice} title="Générer un avis imprimable" style={{ background: '#fff', border: '1px solid var(--border)', cursor: 'pointer', fontSize: 11, padding: '5px 8px', borderRadius: 6, fontWeight: 600, color: 'var(--text)' }}>Avis</button>
           )}
           {onDownloadNotice && (
             <button onClick={onDownloadNotice} title="Exporter en PDF A4" style={{ background: '#fff', border: '1px solid var(--border)', cursor: 'pointer', fontSize: 11, padding: '5px 8px', borderRadius: 6, fontWeight: 600, color: 'var(--red)' }}>PDF A4</button>
@@ -342,7 +342,7 @@ function AlerteCard({ a, onDel, onDelete, onPrintNotice, onDownloadNotice }) {
             <button onClick={onDel} title="Archiver" style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, padding: 4 }}>✓</button>
           )}
           {onDelete && (
-            <button onClick={onDelete} title="Supprimer définitivement" style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, padding: 4, color: 'var(--red)' }}>✕</button>
+            <button onClick={onDelete} title="Supprimer définitivement" style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, padding: 4, color: 'var(--red)' }}>x</button>
           )}
         </div>
       </div>
@@ -414,7 +414,7 @@ function BarChart({ title, data = [], labelKey = 'label', valueKey = 'value', co
             return (
               <div key={`${item[labelKey]}-${idx}`}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 5 }}>
-                  <span style={{ color: 'var(--text)', fontWeight: 600 }}>{item[labelKey] || '—'}</span>
+                  <span style={{ color: 'var(--text)', fontWeight: 600 }}>{item[labelKey] || 'Non renseigné'}</span>
                   <span style={{ color: 'var(--muted)' }}>{formatter(value)}</span>
                 </div>
                 <div style={{ height: 9, background: 'var(--bg)', borderRadius: 10, overflow: 'hidden' }}>
@@ -447,6 +447,85 @@ function ColumnChart({ title, data = [], labelKey = 'label', valueKey = 'value',
           )
         })}
       </div>
+    </div>
+  )
+}
+
+function BadPayerList({ data = [], onViewProfil }) {
+  return (
+    <div className="card" style={{ padding: 18 }}>
+      <h3 style={{ margin: '0 0 14px', fontSize: 14, fontWeight: 700 }}>Top 10 des résidents en retard</h3>
+      {data.length === 0 ? (
+        <div style={{ color: 'var(--muted)', fontSize: 13 }}>Aucun impaye</div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {data.slice(0, 10).map((payer, idx) => (
+            <button
+              key={payer.id || `${payer.nom}-${idx}`}
+              type="button"
+              onClick={() => payer.id && onViewProfil?.(payer.id)}
+              style={{
+                width: '100%',
+                border: '1px solid var(--border)',
+                background: '#fff',
+                borderRadius: 10,
+                padding: '10px 12px',
+                display: 'grid',
+                gridTemplateColumns: '32px 1fr auto',
+                gap: 10,
+                alignItems: 'center',
+                textAlign: 'left',
+                cursor: payer.id ? 'pointer' : 'default',
+              }}
+            >
+              <span style={{ width: 26, height: 26, borderRadius: 8, background: '#FFECEC', color: '#C41E1E', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 800 }}>{idx + 1}</span>
+              <span style={{ minWidth: 0 }}>
+                <span style={{ display: 'block', fontSize: 13, fontWeight: 700, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{payer.nom || payer.resident_nom}</span>
+                <span style={{ display: 'block', fontSize: 11, color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {payer.unite ? `Appartement ${payer.unite}` : 'Appartement non renseigné'}{payer.nom_complet ? ` · ${payer.nom_complet}` : ''}
+                </span>
+              </span>
+              <span style={{ fontSize: 13, fontWeight: 800, color: '#C41E1E' }}>{fmtDA(payer.total || payer.montant_restant || 0)}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function MonthlyFinancialSummary({ data = [] }) {
+  return (
+    <div className="card" style={{ padding: 18 }}>
+      <h3 style={{ margin: '0 0 14px', fontSize: 14, fontWeight: 700 }}>Résumé financier mensuel</h3>
+      {data.length === 0 ? (
+        <div style={{ color: 'var(--muted)', fontSize: 13 }}>Aucune donnée</div>
+      ) : (
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+            <thead>
+              <tr style={{ color: 'var(--muted)' }}>
+                <th style={{ textAlign: 'left', padding: '0 8px 8px 0' }}>Mois</th>
+                <th style={{ textAlign: 'right', padding: '0 8px 8px' }}>Charges créées</th>
+                <th style={{ textAlign: 'right', padding: '0 8px 8px' }}>Montant encaissé</th>
+                <th style={{ textAlign: 'right', padding: '0 8px 8px' }}>Reste à collecter</th>
+                <th style={{ textAlign: 'right', padding: '0 0 8px 8px' }}>Taux</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.map(row => (
+                <tr key={row.mois} style={{ borderTop: '1px solid var(--border)' }}>
+                  <td style={{ padding: '9px 8px 9px 0', fontWeight: 700 }}>{row.mois}</td>
+                  <td style={{ padding: '9px 8px', textAlign: 'right' }}>{fmtDA(row.charges_created || 0)}</td>
+                  <td style={{ padding: '9px 8px', textAlign: 'right', color: '#1A7E53', fontWeight: 700 }}>{fmtDA(row.amount_collected || 0)}</td>
+                  <td style={{ padding: '9px 8px', textAlign: 'right', color: '#C41E1E', fontWeight: 700 }}>{fmtDA(row.remaining_amount || 0)}</td>
+                  <td style={{ padding: '9px 0 9px 8px', textAlign: 'right', fontWeight: 700 }}>{row.collection_percentage || 0}%</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   )
 }
@@ -488,10 +567,10 @@ function PageAccueil({ setPage }) {
       <div className="page-title">Tableau de bord</div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 16, marginBottom: 24 }}>
         {[
-          { label: 'Résidents', val: stats.residents, color: '#1A6BB5', bg: '#EBF3FF', icon: '👥' },
-          { label: 'Charges en attente', val: stats.charges_en_attente, color: '#B07D00', bg: '#FFF8E6', icon: '📋' },
-          { label: 'Total dû', val: fmtDA(stats.total_du), color: '#C41E1E', bg: '#FFECEC', icon: '💰' },
-          { label: 'Requêtes à traiter', val: stats.requetes, color: '#7B5EA7', bg: '#F5F0FF', icon: '📬' },
+          { label: 'Résidents', val: stats.residents, color: '#1A6BB5', bg: '#EBF3FF', icon: 'RS' },
+          { label: 'Charges en attente', val: stats.charges_en_attente, color: '#B07D00', bg: '#FFF8E6', icon: 'CH' },
+          { label: 'Total dû', val: fmtDA(stats.total_du), color: '#C41E1E', bg: '#FFECEC', icon: 'DA' },
+          { label: 'Requêtes à traiter', val: stats.requetes, color: '#7B5EA7', bg: '#F5F0FF', icon: 'RQ' },
         ].map(({ label, val, color, bg, icon }) => (
           <div style={{
             background: '#fff', borderRadius: 16, padding: '20px 22px',
@@ -499,7 +578,7 @@ function PageAccueil({ setPage }) {
           }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
               <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)', letterSpacing: 0.3, textTransform: 'uppercase' }}>{label}</span>
-              <div style={{ width: 34, height: 34, borderRadius: 10, background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>{icon}</div>
+              <div style={{ width: 34, height: 34, borderRadius: 10, background: bg, color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800 }}>{icon}</div>
             </div>
             <div style={{ fontSize: 26, fontWeight: 800, color, letterSpacing: -0.5 }}>{val}</div>
           </div>
@@ -509,7 +588,7 @@ function PageAccueil({ setPage }) {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
         <div className="card" style={{ padding: 0 }}>
           <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: 15, fontWeight: 700 }}>⚠️ Dernières alertes</span>
+            <span style={{ fontSize: 15, fontWeight: 700 }}>Dernières alertes</span>
             <button onClick={() => setPage('alertes')} style={{ background: 'none', border: 'none', color: 'var(--red)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Voir tout →</button>
           </div>
           {alertes.length === 0 ? (
@@ -532,7 +611,7 @@ function PageAccueil({ setPage }) {
         
         <div className="card" style={{ padding: 0 }}>
           <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: 15, fontWeight: 700 }}>📬 Requêtes en attente</span>
+            <span style={{ fontSize: 15, fontWeight: 700 }}>Requêtes en attente</span>
             <button onClick={() => setPage('requetes')} style={{ background: 'none', border: 'none', color: 'var(--red)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Voir tout →</button>
           </div>
           {requetes.length === 0 ? (
@@ -581,28 +660,28 @@ function PageOperations({ setPage }) {
   }
   return (
     <div>
-      <div className="page-title">Analytics — Gestion</div>
+      <div className="page-title">Tableau de bord Gestion</div>
       <StatGrid items={[
-        { label: 'Pending requests', val: data.requetes_ouvertes || 0, color: '#C41E1E', bg: '#FFECEC' },
-        { label: 'Requests in progress', val: data.requetes_en_cours || 0, color: '#1A6BB5', bg: '#EBF3FF' },
-        { label: 'Completed requests', val: data.requetes_resolues || 0, color: '#1A7E53', bg: '#E6F9F0' },
-        { label: 'Active announcements', val: data.alertes_actives || 0, color: '#7B5EA7', bg: '#F5F0FF' },
+        { label: 'Demandes en attente', val: data.requetes_ouvertes || 0, color: '#C41E1E', bg: '#FFECEC' },
+        { label: 'Demandes en cours', val: data.requetes_en_cours || 0, color: '#1A6BB5', bg: '#EBF3FF' },
+        { label: 'Demandes terminées', val: data.requetes_resolues || 0, color: '#1A7E53', bg: '#E6F9F0' },
+        { label: 'Annonces actives', val: data.alertes_actives || 0, color: '#7B5EA7', bg: '#F5F0FF' },
       ]} />
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18, marginBottom: 18 }}>
-        <BarChart title="Requests by status" data={[
-          { label: 'Pending', value: data.requetes_ouvertes || 0 },
-          { label: 'In progress', value: data.requetes_en_cours || 0 },
-          { label: 'Completed', value: data.requetes_resolues || 0 },
+        <BarChart title="Demandes par statut" data={[
+          { label: 'En attente', value: data.requetes_ouvertes || 0 },
+          { label: 'En cours', value: data.requetes_en_cours || 0 },
+          { label: 'Terminées', value: data.requetes_resolues || 0 },
         ]} color="#1A6BB5" />
-        <BarChart title="Announcement statistics" data={[
-          { label: 'Active', value: data.alertes_actives || 0 },
-          { label: 'Archived', value: data.alertes_archivees || 0 },
-          { label: 'Pinned', value: data.alertes_epinglees || 0 },
+        <BarChart title="Statistiques des annonces" data={[
+          { label: 'Actives', value: data.alertes_actives || 0 },
+          { label: 'Archivées', value: data.alertes_archivees || 0 },
+          { label: 'Épinglées', value: data.alertes_epinglees || 0 },
           { label: 'Total', value: data.alertes_total || 0 },
         ]} color="#7B5EA7" />
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18 }}>
-        <BarChart title="Announcements by type" data={(data.alertes_par_type || []).map(a => ({ label: alertCfg[a.type_alerte]?.l || a.type_alerte, value: a.count }))} color="#B07D00" />
+        <BarChart title="Annonces par type" data={(data.alertes_par_type || []).map(a => ({ label: alertCfg[a.type_alerte]?.l || a.type_alerte, value: a.count }))} color="#B07D00" />
         <div className="card" style={{ padding: 0 }}>
           <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontSize: 15, fontWeight: 700 }}>Dernières alertes</span>
@@ -651,27 +730,37 @@ function PageOperations({ setPage }) {
   )
 }
 
-function PageFinance() {
+function PageFinance({ onViewProfil }) {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   useEffect(() => { get('/dashboard/finance').then(setData).catch(() => {}).finally(() => setLoading(false)) }, [])
   if (loading) return <Spinner />
   if (!data) return <div className="card" style={{ padding: 40, textAlign: 'center', color: 'var(--muted)' }}>Erreur de chargement</div>
+  const topCompound = (data.compound_fees || [])[0]
   return (
     <div>
-      <div className="page-title">Analytics — Finance</div>
+      <div className="page-title">Tableau de bord Finance</div>
       <StatGrid items={[
-        { label: 'Total charges', val: fmtDA(data.total_facture || 0), color: '#1A6BB5', bg: '#EBF3FF' },
-        { label: 'Already paid', val: fmtDA(data.total_collecte || 0), color: '#1A7E53', bg: '#E6F9F0' },
-        { label: 'Remaining amount', val: fmtDA(data.impayes_total || 0), color: '#C41E1E', bg: '#FFECEC' },
-        { label: 'Collection rate', val: `${data.taux_collecte || 0}%`, color: '#B07D00', bg: '#FFF8E6' },
+        { label: 'Total des charges', val: fmtDA(data.total_facture || 0), color: '#1A6BB5', bg: '#EBF3FF' },
+        { label: 'Montant encaissé', val: fmtDA(data.total_collecte || 0), color: '#1A7E53', bg: '#E6F9F0' },
+        { label: 'Reste à collecter', val: fmtDA(data.impayes_total || 0), color: '#C41E1E', bg: '#FFECEC' },
+        { label: 'Taux de collecte', val: `${data.taux_collecte || 0}%`, color: '#B07D00', bg: '#FFF8E6' },
       ]} />
+      {topCompound && (
+        <div className="card" style={{ padding: 18, marginBottom: 18, borderLeft: '4px solid #7B5EA7' }}>
+          <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 6 }}>Résidence qui génère le plus de revenus</div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, alignItems: 'center' }}>
+            <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--text)' }}>{topCompound.nom_complet}</div>
+            <div style={{ fontSize: 20, fontWeight: 900, color: '#7B5EA7' }}>{fmtDA(topCompound.total || 0)}</div>
+          </div>
+        </div>
+      )}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18 }}>
-        <ColumnChart title="Paid amount by month" data={data.mensuel || []} labelKey="mois" valueKey="total" color="#1A6BB5" formatter={fmtDA} />
-        <BarChart title="Compound generating the most fees" data={data.compound_fees || []} labelKey="nom_complet" valueKey="total" color="#7B5EA7" formatter={fmtDA} />
+        <ColumnChart title="Montant encaissé par mois" data={data.mensuel || []} labelKey="mois" valueKey="total" color="#1A6BB5" formatter={fmtDA} />
+        <BarChart title="Revenus par résidence" data={data.compound_fees || []} labelKey="nom_complet" valueKey="total" color="#7B5EA7" formatter={fmtDA} />
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: 18, marginTop: 18 }}>
-        <BarChart title="Bad payers" data={data.impayes || []} labelKey="resident_nom" valueKey="montant_restant" color="#C41E1E" formatter={fmtDA} />
+        <MonthlyFinancialSummary data={data.monthly_financial_summary || []} />
         <div className="card" style={{ padding: 16 }}>
           <h3 style={{ margin: '0 0 12px', fontSize: 14, fontWeight: 600 }}>Derniers paiements</h3>
           {(data.derniers_paiements || []).length === 0 ? (
@@ -690,6 +779,10 @@ function PageFinance() {
             </table>
           )}
         </div>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: 18, marginTop: 18 }}>
+        <BadPayerList data={data.bad_payers || data.impayes || []} onViewProfil={onViewProfil} />
+        <BarChart title="Soldes impayés les plus élevés" data={data.bad_payers || data.impayes || []} labelKey="nom" valueKey="total" color="#C41E1E" formatter={fmtDA} />
       </div>
     </div>
   )
@@ -716,13 +809,15 @@ function PageResidents({ toast, onOuvrirChat, onViewProfil }) {
     : list
   const toggleArchive = async (r) => {
     if (toggling[r.id]) return
-    if (!r.archived && !confirm(`Êtes-vous sûr de vouloir désactiver ${r.prenom} ${r.nom} ? Il sera archivé et ne pourra plus recevoir de nouvelles charges ni envoyer de messages.`)) return
+    if (!r.archived && !confirm(`Êtes-vous sûr de vouloir archiver ${r.prenom} ${r.nom} ? Il sera retiré des listes actives, sans supprimer son historique.`)) return
     setToggling(t => ({ ...t, [r.id]: true }))
     try {
       if (r.archived) {
-        await post(`/residents/${r.id}/desarchiver`)
+        await post(`/residents/${r.id}/desarchiver`, {})
+        toast('Résident restauré avec succès')
       } else {
-        await post(`/residents/${r.id}/archiver`)
+        await post(`/residents/${r.id}/archiver`, {})
+        toast('Résident archivé avec succès')
       }
       await charger()
     } catch (e) { toast(e.message) } finally { setToggling(t => ({ ...t, [r.id]: false })) }
@@ -788,17 +883,17 @@ function PageResidents({ toast, onOuvrirChat, onViewProfil }) {
                     <td><span style={{ background: 'var(--red-light)', color: 'var(--red)', padding: '2px 8px', borderRadius: 6, fontSize: 11, fontWeight: 600 }}>{r.residence_nom || 'INNOVIM'}</span></td>
                     <td><strong>{r.unite}</strong></td>
                     <td>
-                      <button onClick={() => toggleArchive(r)} disabled={loadingId} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 12px', borderRadius: 20, border: 'none', cursor: loadingId ? 'wait' : 'pointer', fontSize: 12, fontWeight: 600, background: r.archived ? '#E5E7EB' : '#10B98120', color: r.archived ? '#9CA3AF' : '#10B981', opacity: r.archived ? 0.65 : 1, transition: 'all 0.2s' }}>
-                        <div style={{ width: 16, height: 16, borderRadius: '50%', background: r.archived ? '#CBD5E1' : '#10B981', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s' }}>
+                      <button onClick={() => toggleArchive(r)} disabled={loadingId} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 12px', borderRadius: 20, border: '1px solid transparent', cursor: loadingId ? 'wait' : 'pointer', fontSize: 12, fontWeight: 700, background: r.archived ? '#EBF3FF' : '#F8FAFC', color: r.archived ? '#1A6BB5' : '#475569', borderColor: r.archived ? '#90BBF3' : 'var(--border)', transition: 'all 0.2s' }}>
+                        <div style={{ width: 16, height: 16, borderRadius: '50%', background: r.archived ? '#1A6BB5' : '#94A3B8', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s' }}>
                           {loadingId ? (
                             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" opacity="0.5"/></svg>
                           ) : r.archived ? (
-                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
                           ) : (
-                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>
                           )}
                         </div>
-                        {r.archived ? 'Archivé' : 'Actif'}
+                        {loadingId ? 'Traitement' : r.archived ? 'Restaurer' : 'Archiver'}
                       </button>
                     </td>
                   </tr>
@@ -809,7 +904,7 @@ function PageResidents({ toast, onOuvrirChat, onViewProfil }) {
         </div>
       </div>
       {modal && (
-        <Modal titre="Ajouter un résident" icone="👤" onFermer={() => setModal(false)}>
+        <Modal titre="Ajouter un résident" onFermer={() => setModal(false)}>
           <form onSubmit={creer}>
             <div className="form-group"><label className="form-label">Résidence *</label>
               <select className="form-select" value={form.residence_id} onChange={champ('residence_id')} required>
@@ -839,7 +934,7 @@ function PageResidents({ toast, onOuvrirChat, onViewProfil }) {
         </Modal>
       )}
       {selectedResident && (
-        <Modal titre={selectedResident.prenom + ' ' + selectedResident.nom} icone="👤" onFermer={() => setSelectedResident(null)} maxWidth={440}>
+        <Modal titre={selectedResident.prenom + ' ' + selectedResident.nom} onFermer={() => setSelectedResident(null)} maxWidth={440}>
           <div style={{ textAlign: 'center', padding: '10px 0' }}>
             <div style={{ width: 64, height: 64, borderRadius: '50%', background: avatarColors[selectedResident.id % avatarColors.length].bg, color: avatarColors[selectedResident.id % avatarColors.length].color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, fontWeight: 700, margin: '0 auto 16px' }}>
               {inits(selectedResident.prenom, selectedResident.nom)}
@@ -907,38 +1002,38 @@ function PageCharges({ toast }) {
   const getStatut = s => statuts[s] || statuts.en_attente
 
   const receiptBlocks = data => [
-    { label: 'Reference', value: data.reference, bold: true },
+    { label: 'Référence', value: data.reference, bold: true },
     { label: 'Resident', value: data.charge.resident_nom },
-    { label: 'Unite', value: data.charge.unite || '-' },
+    { label: 'Unité', value: data.charge.unite || 'Non renseigné' },
     { label: 'Designation', value: data.charge.designation },
     { label: 'Date de paiement', value: fmtFull(data.date) },
     { label: 'Methode', value: paymentMethodLabel(data.methode) },
     { label: 'Montant paye', value: fmtDA(data.montant), bold: true },
     { label: 'Reste a payer', value: fmtDA(data.montant_restant) },
     { type: 'space', size: 18 },
-    { value: 'Recu genere automatiquement apres enregistrement du paiement.', size: 9 },
+    { value: 'Reçu généré automatiquement après enregistrement du paiement.', size: 9 },
   ]
 
   const imprimerRecu = data => {
-    openPrintableDocument(`Recu - ${data.reference}`, `
+    openPrintableDocument(`Reçu ${data.reference}`, `
       <div class="brand">${escapeHtml(COMPANY_NAME)}</div>
-      <h1>Recu de paiement</h1>
+      <h1>Reçu de paiement</h1>
       <div class="receipt-total">${escapeHtml(fmtDA(data.montant))}</div>
       <div class="meta">
-        <div><span class="label">Reference</span>${escapeHtml(data.reference)}</div>
+        <div><span class="label">Référence</span>${escapeHtml(data.reference)}</div>
         <div><span class="label">Date</span>${escapeHtml(fmtFull(data.date))}</div>
         <div><span class="label">Resident</span>${escapeHtml(data.charge.resident_nom)}</div>
-        <div><span class="label">Unite</span>${escapeHtml(data.charge.unite || '-')}</div>
+        <div><span class="label">Unité</span>${escapeHtml(data.charge.unite || 'Non renseigné')}</div>
         <div><span class="label">Designation</span>${escapeHtml(data.charge.designation)}</div>
         <div><span class="label">Methode</span>${escapeHtml(paymentMethodLabel(data.methode))}</div>
         <div><span class="label">Reste a payer</span>${escapeHtml(fmtDA(data.montant_restant))}</div>
       </div>
-      <div class="footer">Recu genere depuis INNOVA - ${escapeHtml(COMPANY_NAME)}</div>
+      <div class="footer">Reçu généré depuis INNOVA. ${escapeHtml(COMPANY_NAME)}</div>
     `)
   }
 
   const telechargerRecuPdf = data => {
-    downloadPdf(`recu-${fileSafe(data.reference)}.pdf`, 'Recu de paiement', receiptBlocks(data))
+    downloadPdf(`recu-${fileSafe(data.reference)}.pdf`, 'Reçu de paiement', receiptBlocks(data))
   }
   
   const chargesActives = charges.filter(c => c.statut !== 'paye')
@@ -989,7 +1084,7 @@ function PageCharges({ toast }) {
         <div className="page-title">Charges</div>
         <div style={{ display: 'flex', gap: 10 }}>
           <button className="btn btn-outline" onClick={() => setSettingsModal(true)} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            ⚙️ Montant mensuel
+            Montant mensuel
           </button>
           <button className="btn btn-red" onClick={genererCharges} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <span style={{ fontSize: 18, lineHeight: 1 }}>+</span> Générer charges mensuelles
@@ -1011,7 +1106,7 @@ function PageCharges({ toast }) {
             fontWeight: 600, fontSize: 13,
           }}
         >
-          💰 Charges actives ({chargesActives.length})
+          Charges actives ({chargesActives.length})
         </button>
         <button 
           onClick={() => setActiveTab('history')}
@@ -1022,7 +1117,7 @@ function PageCharges({ toast }) {
             fontWeight: 600, fontSize: 13,
           }}
         >
-          📁 Historique ({chargesHistory.length})
+          Historique ({chargesHistory.length})
         </button>
       </div>
       
@@ -1054,7 +1149,7 @@ function PageCharges({ toast }) {
                     <td>
                       {c.statut !== 'paye' && (
                         <button className="btn btn-green" style={{ padding: '6px 12px', fontSize: 11 }} onClick={() => { setModal(c); setPaiementForm({ montant: c.montant_restant.toString(), methode: 'cash' }) }}>
-                          💳 Enregistrer paiement
+                          Enregistrer le paiement
                         </button>
                       )}
                     </td>
@@ -1066,7 +1161,7 @@ function PageCharges({ toast }) {
         )
       )}
       {modal && (
-        <Modal titre="Enregistrer un paiement" icone="💳" onFermer={() => setModal(null)}>
+        <Modal titre="Enregistrer un paiement" onFermer={() => setModal(null)}>
           <form onSubmit={enregistrerPaiement}>
             <div style={{ background: 'var(--bg)', borderRadius: 12, padding: 14, marginBottom: 16, border: '1px solid var(--border)' }}>
               <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 4 }}>{modal.designation}</div>
@@ -1112,26 +1207,26 @@ function PageCharges({ toast }) {
             <div className="modal-btns">
               <button type="button" className="btn btn-outline" onClick={() => setModal(null)}>Annuler</button>
               <button type="submit" className="btn btn-green" style={{ flex: 2 }} disabled={envoi}>
-                {envoi ? 'Enregistrement...' : '✅ Confirmer le paiement'}
+                {envoi ? 'Enregistrement...' : 'Confirmer le paiement'}
               </button>
             </div>
           </form>
         </Modal>
       )}
       {receipt && (
-        <Modal titre="Recu genere" icone="📄" onFermer={() => setReceipt(null)}>
+        <Modal titre="Reçu généré" onFermer={() => setReceipt(null)}>
           <div style={{ background: 'var(--bg)', borderRadius: 12, padding: 16, marginBottom: 16, border: '1px solid var(--border)' }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 6 }}>Reference</div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 6 }}>Référence</div>
             <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--text)' }}>{receipt.reference}</div>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
             {[
-              ['Resident', receipt.charge.resident_nom],
-              ['Unite', receipt.charge.unite || '-'],
-              ['Montant paye', fmtDA(receipt.montant)],
-              ['Reste a payer', fmtDA(receipt.montant_restant)],
+              ['Résident', receipt.charge.resident_nom],
+              ['Unité', receipt.charge.unite || 'Non renseigné'],
+              ['Montant payé', fmtDA(receipt.montant)],
+              ['Reste à payer', fmtDA(receipt.montant_restant)],
               ['Date', fmtFull(receipt.date)],
-              ['Methode', paymentMethodLabel(receipt.methode)],
+              ['Méthode', paymentMethodLabel(receipt.methode)],
             ].map(([label, value]) => (
               <div key={label} style={{ padding: '12px 14px', borderRadius: 10, background: '#fff', border: '1px solid var(--border)' }}>
                 <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 4 }}>{label}</div>
@@ -1143,13 +1238,13 @@ function PageCharges({ toast }) {
             {receipt.charge.designation}
           </div>
           <div className="modal-btns">
-            <button type="button" className="btn btn-outline" onClick={() => imprimerRecu(receipt)}>Generer recu imprimable</button>
-            <button type="button" className="btn btn-green" style={{ flex: 2 }} onClick={() => telechargerRecuPdf(receipt)}>Telecharger PDF</button>
+            <button type="button" className="btn btn-outline" onClick={() => imprimerRecu(receipt)}>Générer le reçu imprimable</button>
+            <button type="button" className="btn btn-green" style={{ flex: 2 }} onClick={() => telechargerRecuPdf(receipt)}>Télécharger PDF</button>
           </div>
         </Modal>
       )}
       {settingsModal && (
-        <Modal titre="Paramètres des charges" icone="⚙️" onFermer={() => setSettingsModal(false)}>
+        <Modal titre="Paramètres des charges" onFermer={() => setSettingsModal(false)}>
           <form onSubmit={sauvegarderSettings}>
             <div className="form-group">
               <label className="form-label">Montant mensuel par résident (DA) *</label>
@@ -1351,7 +1446,7 @@ function PageMessagerie({ resident, toast, residentInitial, onCloseInitial }) {
                       {r.dernier_message || 'Aucun message'}
                     </div>
                     <div style={{ fontSize: 11, color: '#94A3B8', marginTop: 2, display: 'flex', gap: 6, alignItems: 'center' }}>
-                      <span>🏠 {r.unite}</span>
+                      <span>Appartement {r.unite}</span>
                       {r.archived && <span style={{ background: '#E5E7EB', color: '#9CA3AF', fontSize: 9, fontWeight: 700, padding: '1px 6px', borderRadius: 8 }}>ARCHIVÉ</span>}
                     </div>
                   </div>
@@ -1382,7 +1477,7 @@ function PageMessagerie({ resident, toast, residentInitial, onCloseInitial }) {
                   <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', display: 'flex', alignItems: 'center', gap: 8 }}>{actif.prenom} {actif.nom}
                     {actif.archived && <span style={{ background: '#E5E7EB', color: '#9CA3AF', fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10 }}>ARCHIVÉ</span>}
                   </div>
-                  <div style={{ fontSize: 12, color: '#64748B' }}>🏠 Unité {actif.unite} · Conversation privée</div>
+                  <div style={{ fontSize: 12, color: '#64748B' }}>Unité {actif.unite} · Conversation privée</div>
                 </div>
               </div>
 
@@ -1410,7 +1505,7 @@ function PageMessagerie({ resident, toast, residentInitial, onCloseInitial }) {
               <div style={{ padding: '16px 20px', borderTop: '1px solid var(--border)', display: 'flex', gap: 12, alignItems: 'flex-end', background: '#fff' }}>
                 {actif.archived ? (
                   <div style={{ flex: 1, borderRadius: 16, background: '#F1F5F9', padding: '12px 16px', fontSize: 13, color: '#94A3B8', textAlign: 'center' }}>
-                    💬 Résident archivé — envoi de messages désactivé
+                    Résident archivé. Envoi de messages désactivé.
                   </div>
                 ) : (
                   <>
@@ -1522,7 +1617,7 @@ function PageAlertes({ toast }) {
   const genererAvis = a => {
     openPrintableDocument(`Avis - ${a.titre}`, `
       <div class="brand">${escapeHtml(COMPANY_NAME)}</div>
-      <h1>Avis aux residents</h1>
+      <h1>Avis aux résidents</h1>
       <div class="meta">
         <div><span class="label">Titre</span>${escapeHtml(a.titre)}</div>
         <div><span class="label">Type</span>${escapeHtml(alertTypeLabel(a.type_alerte))}</div>
@@ -1530,12 +1625,12 @@ function PageAlertes({ toast }) {
         <div><span class="label">Date</span>${escapeHtml(fmtFull(a.date_publication || a.date_creation))}</div>
       </div>
       <div class="content">${escapeHtml(a.contenu)}</div>
-      <div class="footer">Avis genere depuis INNOVA - ${escapeHtml(fmtFull(new Date().toISOString()))}</div>
+      <div class="footer">Avis généré depuis INNOVA. ${escapeHtml(fmtFull(new Date().toISOString()))}</div>
     `)
   }
 
   const exporterAvisPdf = a => {
-    downloadPdf(`avis-${fileSafe(a.titre)}.pdf`, 'Avis aux residents', noticeBlocks(a))
+    downloadPdf(`avis-${fileSafe(a.titre)}.pdf`, 'Avis aux résidents', noticeBlocks(a))
   }
   
   if (loading) return <Spinner />
@@ -1558,7 +1653,7 @@ function PageAlertes({ toast }) {
             fontWeight: 600, fontSize: 13,
           }}
         >
-          ⚠️ Alertes actives ({alertes.length})
+          Alertes actives ({alertes.length})
         </button>
         <button 
           onClick={() => setActiveTab('history')}
@@ -1569,7 +1664,7 @@ function PageAlertes({ toast }) {
             fontWeight: 600, fontSize: 13,
           }}
         >
-          📁 Historique ({alertesHistory.length})
+          Historique ({alertesHistory.length})
         </button>
       </div>
       
@@ -1591,7 +1686,7 @@ function PageAlertes({ toast }) {
         )
       )}
       {modal && (
-        <Modal titre="Créer une alerte" icone="⚠️" onFermer={() => setModal(false)}>
+        <Modal titre="Créer une alerte" onFermer={() => setModal(false)}>
           <form onSubmit={creer}>
             <div className="form-group"><label className="form-label">Résidence *</label>
               <select className="form-select" value={form.residence_id} onChange={e => setForm(f => ({ ...f, residence_id: e.target.value }))} required>
@@ -1715,7 +1810,7 @@ function PageRequetes({ toast }) {
             fontWeight: 600, fontSize: 13,
           }}
         >
-          📬 En attente ({requetesEnAttente.length})
+          En attente ({requetesEnAttente.length})
         </button>
         <button 
           onClick={() => setActiveTab('history')}
@@ -1726,7 +1821,7 @@ function PageRequetes({ toast }) {
             fontWeight: 600, fontSize: 13,
           }}
         >
-          📁 Historique ({requetesHistory.length})
+          Historique ({requetesHistory.length})
         </button>
       </div>
       
@@ -1759,10 +1854,10 @@ function PageRequetes({ toast }) {
                   </div>
                   <button 
                     onClick={() => supprimer(q.id)} 
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--red)', fontSize: 18 }}
+                    style={{ background: 'none', border: '1px solid var(--border)', cursor: 'pointer', color: 'var(--red)', fontSize: 12, fontWeight: 700, padding: '6px 10px', borderRadius: 8 }}
                     title="Supprimer définitivement"
                   >
-                    🗑️
+                    Supprimer
                   </button>
                 </div>
               </div>
@@ -1939,55 +2034,68 @@ export default function AdminApp() {
     useEffect(() => { get('/analytics').then(setData).catch(() => {}).finally(() => setLoading(false)) }, [])
     if (loading) return <Spinner />
     if (!data) return <div className="card" style={{ padding: 40, textAlign: 'center', color: 'var(--muted)' }}>Erreur de chargement</div>
+    const topCompound = (data.compound_fees || [])[0]
 
     return (
       <div>
-        <div className="page-title">Analytics</div>
+        <div className="page-title">Tableau de bord analytique</div>
 
-        <div className="sec">Financial</div>
+        <div className="sec">Finance</div>
         <StatGrid items={[
-          { label: 'Total charges', val: fmtDA(data.total_facture || 0), color: '#1A6BB5', bg: '#EBF3FF' },
-          { label: 'Already paid', val: fmtDA(data.total_percu || 0), color: '#1A7E53', bg: '#E6F9F0' },
-          { label: 'Remaining amount', val: fmtDA(data.remaining || 0), color: '#C41E1E', bg: '#FFECEC' },
-          { label: 'Collection rate', val: `${data.taux_collecte || 0}%`, color: '#B07D00', bg: '#FFF8E6' },
+          { label: 'Total des charges', val: fmtDA(data.total_facture || 0), color: '#1A6BB5', bg: '#EBF3FF' },
+          { label: 'Montant encaissé', val: fmtDA(data.total_percu || 0), color: '#1A7E53', bg: '#E6F9F0' },
+          { label: 'Reste à collecter', val: fmtDA(data.remaining || 0), color: '#C41E1E', bg: '#FFECEC' },
+          { label: 'Taux de collecte', val: `${data.taux_collecte || 0}%`, color: '#B07D00', bg: '#FFF8E6' },
         ]} />
+        {topCompound && (
+          <div className="card" style={{ padding: 18, marginBottom: 18, borderLeft: '4px solid #7B5EA7' }}>
+            <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 6 }}>Résidence qui génère le plus de revenus</div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, alignItems: 'center' }}>
+              <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--text)' }}>{topCompound.nom_complet}</div>
+              <div style={{ fontSize: 20, fontWeight: 900, color: '#7B5EA7' }}>{fmtDA(topCompound.total || 0)}</div>
+            </div>
+          </div>
+        )}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18, marginBottom: 24 }}>
-          <ColumnChart title="Paid amount by month" data={data.mensuel || []} labelKey="mois" valueKey="total" color="#1A6BB5" formatter={fmtDA} />
-          <BarChart title="Compound generating the most fees" data={data.compound_fees || []} labelKey="nom_complet" valueKey="total" color="#7B5EA7" formatter={fmtDA} />
-          <BarChart title="Bad payers" data={data.mauvais_payeurs || []} labelKey="nom" valueKey="total" color="#C41E1E" formatter={fmtDA} />
-          <BarChart title="Remaining amount by compound" data={data.impayes || []} labelKey="nom_complet" valueKey="total" color="#B07D00" formatter={fmtDA} />
+          <ColumnChart title="Montant encaissé par mois" data={data.mensuel || []} labelKey="mois" valueKey="total" color="#1A6BB5" formatter={fmtDA} />
+          <BarChart title="Revenus par résidence" data={data.compound_fees || []} labelKey="nom_complet" valueKey="total" color="#7B5EA7" formatter={fmtDA} />
+          <BadPayerList data={data.mauvais_payeurs || []} onViewProfil={handleViewProfil} />
+          <BarChart title="Reste à collecter par résidence" data={data.impayes || []} labelKey="nom_complet" valueKey="total" color="#B07D00" formatter={fmtDA} />
+        </div>
+        <div style={{ marginBottom: 24 }}>
+          <MonthlyFinancialSummary data={data.monthly_financial_summary || []} />
         </div>
 
-        <div className="sec">Residents</div>
+        <div className="sec">Résidents</div>
         <StatGrid items={[
-          { label: 'Total residents', val: data.total_residents || 0, color: '#1A6BB5', bg: '#EBF3FF' },
-          { label: 'Occupied apartments', val: data.occupied_apartments || 0, color: '#1A7E53', bg: '#E6F9F0' },
-          { label: 'Vacant apartments', val: data.vacant_apartments || 0, color: '#C41E1E', bg: '#FFECEC' },
-          { label: 'Total apartments', val: data.total_apartments || 0, color: '#7B5EA7', bg: '#F5F0FF' },
+          { label: 'Total résidents', val: data.total_residents || 0, color: '#1A6BB5', bg: '#EBF3FF' },
+          { label: 'Appartements occupés', val: data.occupied_apartments || 0, color: '#1A7E53', bg: '#E6F9F0' },
+          { label: 'Appartements vacants', val: data.vacant_apartments || 0, color: '#C41E1E', bg: '#FFECEC' },
+          { label: 'Total appartements', val: data.total_apartments || 0, color: '#7B5EA7', bg: '#F5F0FF' },
         ]} />
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18, marginBottom: 24 }}>
-          <BarChart title="Occupied apartments by compound" data={data.occupied_by_compound || []} labelKey="nom_complet" valueKey="count" color="#1A7E53" />
-          <BarChart title="Messages in the last 7 days" data={data.messages_7j || []} labelKey="jour" valueKey="count" color="#7B5EA7" />
+          <BarChart title="Appartements occupés par résidence" data={data.occupied_by_compound || []} labelKey="nom_complet" valueKey="count" color="#1A7E53" />
+          <BarChart title="Messages sur les 7 derniers jours" data={data.messages_7j || []} labelKey="jour" valueKey="count" color="#7B5EA7" />
         </div>
 
-        <div className="sec">Operations</div>
+        <div className="sec">Gestion</div>
         <StatGrid items={[
-          { label: 'Pending requests', val: data.requetes_ouvertes || 0, color: '#C41E1E', bg: '#FFECEC' },
-          { label: 'Requests in progress', val: data.requetes_en_cours || 0, color: '#1A6BB5', bg: '#EBF3FF' },
-          { label: 'Completed requests', val: data.requetes_resolues || 0, color: '#1A7E53', bg: '#E6F9F0' },
-          { label: 'Active announcements', val: data.total_alertes || 0, color: '#7B5EA7', bg: '#F5F0FF' },
+          { label: 'Demandes en attente', val: data.requetes_ouvertes || 0, color: '#C41E1E', bg: '#FFECEC' },
+          { label: 'Demandes en cours', val: data.requetes_en_cours || 0, color: '#1A6BB5', bg: '#EBF3FF' },
+          { label: 'Demandes terminées', val: data.requetes_resolues || 0, color: '#1A7E53', bg: '#E6F9F0' },
+          { label: 'Annonces actives', val: data.total_alertes || 0, color: '#7B5EA7', bg: '#F5F0FF' },
         ]} />
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18 }}>
-          <BarChart title="Requests by status" data={[
-            { label: 'Pending', value: data.requetes_ouvertes || 0 },
-            { label: 'In progress', value: data.requetes_en_cours || 0 },
-            { label: 'Completed', value: data.requetes_resolues || 0 },
+          <BarChart title="Demandes par statut" data={[
+            { label: 'En attente', value: data.requetes_ouvertes || 0 },
+            { label: 'En cours', value: data.requetes_en_cours || 0 },
+            { label: 'Terminées', value: data.requetes_resolues || 0 },
           ]} color="#1A6BB5" />
-          <BarChart title="Announcement statistics" data={[
-            { label: 'Active', value: data.total_alertes || 0 },
-            { label: 'Archived', value: data.alertes_archivees || 0 },
-            { label: 'Pinned', value: data.alertes_epinglees || 0 },
-            { label: 'Scheduled', value: data.alertes_programmees || 0 },
+          <BarChart title="Statistiques des annonces" data={[
+            { label: 'Actives', value: data.total_alertes || 0 },
+            { label: 'Archivées', value: data.alertes_archivees || 0 },
+            { label: 'Épinglées', value: data.alertes_epinglees || 0 },
+            { label: 'Programmées', value: data.alertes_programmees || 0 },
           ]} color="#7B5EA7" />
         </div>
       </div>
@@ -2104,8 +2212,8 @@ export default function AdminApp() {
             {[
               ['Nom complet', `${data.prenom} ${data.nom}`],
               ['Appartement', data.unite],
-              ['Résidence', data.residence_nom || '—'],
-              ['Téléphone', data.telephone || '—'],
+              ['Résidence', data.residence_nom || 'Non renseigné'],
+              ['Téléphone', data.telephone || 'Non renseigné'],
               ['Email', data.email],
               ['Statut', ROLE_LABELS[data.role] || data.role],
             ].map(([label, val]) => (
@@ -2126,7 +2234,7 @@ export default function AdminApp() {
             <div className="sec">Informations financières</div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
               {[
-                { label: 'Total charges', val: finances.total_charges, color: 'var(--blue)', bg: 'var(--blue-l)' },
+                { label: 'Total des charges', val: finances.total_charges, color: 'var(--blue)', bg: 'var(--blue-l)' },
                 { label: 'Total payé', val: finances.total_paid, color: 'var(--green)', bg: 'var(--green-l)' },
                 { label: 'Reste à payer', val: finances.remaining, color: 'var(--red)', bg: 'var(--red-light)' },
               ].map(s => (
@@ -2155,7 +2263,7 @@ export default function AdminApp() {
             <div className="modal" style={{ maxWidth: 640, maxHeight: '80vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
               <div className="modal-title" style={{ flexShrink: 0 }}>
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: 8 }}><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> Historique
-                <button onClick={() => setHistoryModal(false)} style={{ marginLeft: 'auto', background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', color: 'var(--muted)', padding: '4px 8px', borderRadius: 6 }}>✕</button>
+                <button onClick={() => setHistoryModal(false)} style={{ marginLeft: 'auto', background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', color: 'var(--muted)', padding: '4px 8px', borderRadius: 6 }}>x</button>
               </div>
 
               {/* Tabs */}
@@ -2188,7 +2296,7 @@ export default function AdminApp() {
                               <td style={{ whiteSpace: 'nowrap' }}>{fmtDate(p.date_paiement)}</td>
                               <td style={{ maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.designation}</td>
                               <td style={{ fontWeight: 600, color: 'var(--green)' }}>{fmtDA(p.montant)}</td>
-                              <td style={{ fontSize: 10, color: 'var(--hint)' }}>{p.reference || '—'}</td>
+                              <td style={{ fontSize: 10, color: 'var(--hint)' }}>{p.reference || 'Non renseigné'}</td>
                               <td><span className="pill pill-blue">{paymentMethodLabel(p.methode)}</span></td>
                             </tr>
                           ))}
@@ -2251,7 +2359,7 @@ export default function AdminApp() {
   }
 
   const pageMap = {
-    accueil: role === 'operations' ? <PageOperations setPage={setPage} /> : role === 'finance' ? <PageFinance /> : <PageAccueil setPage={setPage} />,
+    accueil: role === 'operations' ? <PageOperations setPage={setPage} /> : role === 'finance' ? <PageFinance onViewProfil={handleViewProfil} /> : <PageAccueil setPage={setPage} />,
     residents:  <PageResidents toast={toast} onOuvrirChat={ouvrirChatResident} onViewProfil={handleViewProfil} />,
     charges:    <PageCharges toast={toast} />,
     messagerie: <PageMessagerie resident={resident} toast={toast} residentInitial={chatResident} onCloseInitial={() => setChatResident(null)} />,
