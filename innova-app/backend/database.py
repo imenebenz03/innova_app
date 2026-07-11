@@ -630,7 +630,7 @@ class ChargeDB:
     def get_all_with_residents():
         conn = get_connection()
         rows = conn.execute(
-            "SELECT c.*,r.nom||' '||r.prenom AS resident_nom,r.unite FROM charges c JOIN residents r ON c.resident_id=r.id ORDER BY c.echeance DESC"
+            "SELECT c.*,r.nom||' '||r.prenom AS resident_nom,r.unite FROM charges c JOIN residents r ON c.resident_id=r.id WHERE (r.archived IS NULL OR r.archived=0) ORDER BY c.echeance DESC"
         ).fetchall()
         conn.close()
         return rows_to_list(rows)
@@ -861,7 +861,7 @@ class MessageDB:
 
         # Use a simpler, correct query
         residents = conn.execute(
-            "SELECT id, nom, prenom, unite FROM residents WHERE role='resident' ORDER BY nom"
+            "SELECT id, nom, prenom, unite, archived FROM residents WHERE role='resident' ORDER BY nom"
         ).fetchall()
 
         result = []
@@ -881,6 +881,7 @@ class MessageDB:
                 "nom": r["nom"],
                 "prenom": r["prenom"],
                 "unite": r["unite"],
+                "archived": bool(r["archived"]),
                 "non_lus": non_lus,
                 "dernier_message": dernier["contenu"] if dernier else None,
                 "derniere_date": dernier["date_envoi"] if dernier else None,
@@ -1246,7 +1247,7 @@ class SettingsDB:
             conn.close()
             return {"succes": False, "message": "Charges déjà générées pour ce mois"}
         
-        residents = conn.execute("SELECT id, nom, prenom FROM residents WHERE role='resident'").fetchall()
+        residents = conn.execute("SELECT id, nom, prenom FROM residents WHERE role='resident' AND (archived IS NULL OR archived=0)").fetchall()
         montant = SettingsDB.get_montant_mensuel()
         
         jour_echeance = 30 if maintenant.month != 2 else 28

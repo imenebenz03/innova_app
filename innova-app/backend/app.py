@@ -406,6 +406,9 @@ def envoyer_prive():
     
     if _normalize_role(session.get("role", "")) in STAFF_ROLES:
         dest_id = int(d["destinataire_id"])
+        dest_resident = ResidentDB.get_by_id(dest_id)
+        if dest_resident and dest_resident.get("archived"):
+            return jsonify({"erreur": "Ce résident est archivé. Vous ne pouvez plus lui envoyer de messages."}), 403
         canal = f"prive_{min(admin_row['id'], dest_id)}_{max(admin_row['id'], dest_id)}"
         
         dest_tokens = DeviceTokenDB.get_all_for_resident(dest_id)

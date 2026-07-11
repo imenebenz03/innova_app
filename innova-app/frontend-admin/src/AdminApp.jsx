@@ -675,6 +675,7 @@ function PageResidents({ toast, onOuvrirChat, onViewProfil }) {
     : list
   const toggleArchive = async (r) => {
     if (toggling[r.id]) return
+    if (!r.archived && !confirm(`Êtes-vous sûr de vouloir désactiver ${r.prenom} ${r.nom} ? Il sera archivé et ne pourra plus recevoir de nouvelles charges ni envoyer de messages.`)) return
     setToggling(t => ({ ...t, [r.id]: true }))
     try {
       if (r.archived) {
@@ -746,8 +747,8 @@ function PageResidents({ toast, onOuvrirChat, onViewProfil }) {
                     <td><span style={{ background: 'var(--red-light)', color: 'var(--red)', padding: '2px 8px', borderRadius: 6, fontSize: 11, fontWeight: 600 }}>{r.residence_nom || 'INNOVIM'}</span></td>
                     <td><strong>{r.unite}</strong></td>
                     <td>
-                      <button onClick={() => toggleArchive(r)} disabled={loadingId} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 12px', borderRadius: 20, border: 'none', cursor: loadingId ? 'wait' : 'pointer', fontSize: 12, fontWeight: 600, background: r.archived ? '#E5E7EB' : '#10B98120', color: r.archived ? '#6B7280' : '#10B981', transition: 'all 0.2s' }}>
-                        <div style={{ width: 16, height: 16, borderRadius: '50%', background: r.archived ? '#9CA3AF' : '#10B981', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s' }}>
+                      <button onClick={() => toggleArchive(r)} disabled={loadingId} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 12px', borderRadius: 20, border: 'none', cursor: loadingId ? 'wait' : 'pointer', fontSize: 12, fontWeight: 600, background: r.archived ? '#E5E7EB' : '#10B98120', color: r.archived ? '#9CA3AF' : '#10B981', opacity: r.archived ? 0.65 : 1, transition: 'all 0.2s' }}>
+                        <div style={{ width: 16, height: 16, borderRadius: '50%', background: r.archived ? '#CBD5E1' : '#10B981', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s' }}>
                           {loadingId ? (
                             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" opacity="0.5"/></svg>
                           ) : r.archived ? (
@@ -1221,6 +1222,7 @@ function PageMessagerie({ resident, toast, residentInitial, onCloseInitial }) {
 
   const envoyer = async () => {
     const t = texte.trim(); if (!t || sending || !actif) return
+    if (actif.archived) { toast('Ce résident est archivé. Vous ne pouvez plus lui envoyer de messages.'); return }
     setSending(true)
     try {
       await post('/messages/envoyer-prive', { contenu: t, destinataire_id: actif.id })
@@ -1307,7 +1309,10 @@ function PageMessagerie({ resident, toast, residentInitial, onCloseInitial }) {
                     <div style={{ fontSize: 12, color: 'var(--hint)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {r.dernier_message || 'Aucun message'}
                     </div>
-                    <div style={{ fontSize: 11, color: '#94A3B8', marginTop: 2 }}>🏠 {r.unite}</div>
+                    <div style={{ fontSize: 11, color: '#94A3B8', marginTop: 2, display: 'flex', gap: 6, alignItems: 'center' }}>
+                      <span>🏠 {r.unite}</span>
+                      {r.archived && <span style={{ background: '#E5E7EB', color: '#9CA3AF', fontSize: 9, fontWeight: 700, padding: '1px 6px', borderRadius: 8 }}>ARCHIVÉ</span>}
+                    </div>
                   </div>
                 </div>
               )
@@ -1333,7 +1338,9 @@ function PageMessagerie({ resident, toast, residentInitial, onCloseInitial }) {
                   {inits(actif.prenom, actif.nom)}
                 </div>
                 <div>
-                  <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)' }}>{actif.prenom} {actif.nom}</div>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', display: 'flex', alignItems: 'center', gap: 8 }}>{actif.prenom} {actif.nom}
+                    {actif.archived && <span style={{ background: '#E5E7EB', color: '#9CA3AF', fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10 }}>ARCHIVÉ</span>}
+                  </div>
                   <div style={{ fontSize: 12, color: '#64748B' }}>🏠 Unité {actif.unite} · Conversation privée</div>
                 </div>
               </div>
@@ -1360,19 +1367,27 @@ function PageMessagerie({ resident, toast, residentInitial, onCloseInitial }) {
               </div>
 
               <div style={{ padding: '16px 20px', borderTop: '1px solid var(--border)', display: 'flex', gap: 12, alignItems: 'flex-end', background: '#fff' }}>
-                <input
-                  className="form-input" value={texte}
-                  onChange={e => setTexte(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), envoyer())}
-                  placeholder={`Écrire à ${actif.prenom}…`}
-                  style={{ flex: 1, borderRadius: 16, background: '#F1F5F9', padding: '12px 16px' }}
-                />
-                <button
-                  className="btn btn-red" onClick={envoyer} disabled={!texte.trim() || sending}
-                  style={{ borderRadius: 16, width: 48, height: 48, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, opacity: texte.trim() ? 1 : 0.4 }}
-                >
-                  <span style={{ fontSize: 18 }}>➤</span>
-                </button>
+                {actif.archived ? (
+                  <div style={{ flex: 1, borderRadius: 16, background: '#F1F5F9', padding: '12px 16px', fontSize: 13, color: '#94A3B8', textAlign: 'center' }}>
+                    💬 Résident archivé — envoi de messages désactivé
+                  </div>
+                ) : (
+                  <>
+                    <input
+                      className="form-input" value={texte}
+                      onChange={e => setTexte(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), envoyer())}
+                      placeholder={`Écrire à ${actif.prenom}…`}
+                      style={{ flex: 1, borderRadius: 16, background: '#F1F5F9', padding: '12px 16px' }}
+                    />
+                    <button
+                      className="btn btn-red" onClick={envoyer} disabled={!texte.trim() || sending}
+                      style={{ borderRadius: 16, width: 48, height: 48, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, opacity: texte.trim() ? 1 : 0.4 }}
+                    >
+                      <span style={{ fontSize: 18 }}>➤</span>
+                    </button>
+                  </>
+                )}
               </div>
             </>
           )}
