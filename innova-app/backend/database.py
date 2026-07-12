@@ -188,6 +188,7 @@ def init_db():
             echeance        TEXT    NOT NULL,
             statut          TEXT    NOT NULL DEFAULT 'en_attente',
             date_paiement   TEXT,
+            date_creation   TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (resident_id) REFERENCES residents(id) ON DELETE CASCADE
         );
 
@@ -271,6 +272,7 @@ def init_db():
             echeance        TEXT    NOT NULL,
             statut          TEXT    NOT NULL DEFAULT 'en_attente',
             date_paiement   TEXT,
+            date_creation   TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (resident_id) REFERENCES residents(id) ON DELETE CASCADE
         );
 
@@ -359,6 +361,11 @@ def init_db():
         pass
     try:
         c.execute("ALTER TABLE residents ADD COLUMN IF NOT EXISTS archived INTEGER NOT NULL DEFAULT 0")
+    except:
+        pass
+    try:
+        c.execute("ALTER TABLE charges ADD COLUMN IF NOT EXISTS date_creation TEXT")
+        c.execute("ALTER TABLE charges ALTER COLUMN date_creation SET DEFAULT CURRENT_TIMESTAMP")
     except:
         pass
 

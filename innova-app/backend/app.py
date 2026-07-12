@@ -674,10 +674,16 @@ def get_residences():
 def sante():
     return jsonify({"statut": "ok", "app": "INNOVA", "pays": "Algerie"})
 
+def ensure_charge_analytics_schema(conn):
+    conn.execute("ALTER TABLE charges ADD COLUMN IF NOT EXISTS date_creation TEXT")
+    conn.execute("ALTER TABLE charges ALTER COLUMN date_creation SET DEFAULT CURRENT_TIMESTAMP")
+    conn.commit()
+
 @app.route("/api/analytics", methods=["GET"])
 @role_requis("super_admin")
 def analytics():
     conn = get_connection()
+    ensure_charge_analytics_schema(conn)
     total_facture = conn.execute("SELECT COALESCE(SUM(montant_total),0) FROM charges").fetchone()[0]
     total_percu = conn.execute("SELECT COALESCE(SUM(montant),0) FROM paiements").fetchone()[0]
     restant = conn.execute("SELECT COALESCE(SUM(montant_restant),0) FROM charges").fetchone()[0]
@@ -720,11 +726,11 @@ def analytics():
 
     monthly_financial_summary = conn.execute("""
         WITH charge_months AS (
-            SELECT TO_CHAR(date_creation::timestamp, 'YYYY-MM') AS mois,
+            SELECT TO_CHAR(COALESCE(date_creation, echeance)::timestamp, 'YYYY-MM') AS mois,
                    COALESCE(SUM(montant_total),0) AS charges_created,
                    COALESCE(SUM(montant_restant),0) AS remaining_amount
             FROM charges
-            WHERE date_creation::timestamp >= CURRENT_TIMESTAMP - INTERVAL '6 months'
+            WHERE COALESCE(date_creation, echeance)::timestamp >= CURRENT_TIMESTAMP - INTERVAL '6 months'
             GROUP BY mois
         ),
         payment_months AS (
@@ -739,8 +745,8 @@ def analytics():
                COALESCE(p.amount_collected,0) AS amount_collected,
                COALESCE(c.remaining_amount,0) AS remaining_amount,
                CASE WHEN COALESCE(c.charges_created,0) > 0
-                    THEN ROUND(((COALESCE(p.amount_collected,0)::numeric / c.charges_created::numeric) * 100), 1)
-                    ELSE 0 END AS collection_percentage
+                    THEN ROUND(((COALESCE(p.amount_collected,0)::numeric / c.charges_created::numeric) * 100), 1)::double precision
+                    ELSE 0::double precision END AS collection_percentage
         FROM charge_months c
         FULL OUTER JOIN payment_months p ON c.mois = p.mois
         ORDER BY mois
@@ -841,6 +847,7 @@ def dashboard_operations():
 @role_requis("super_admin", "finance")
 def dashboard_finance():
     conn = get_connection()
+    ensure_charge_analytics_schema(conn)
     total_facture = conn.execute("SELECT COALESCE(SUM(montant_total),0) FROM charges").fetchone()[0]
     total_percu   = conn.execute("SELECT COALESCE(SUM(montant),0) FROM paiements").fetchone()[0]
     taux = round(total_percu / total_facture * 100, 1) if total_facture else 0
@@ -886,11 +893,11 @@ def dashboard_finance():
 
     monthly_financial_summary = rows_to_list(conn.execute("""
         WITH charge_months AS (
-            SELECT TO_CHAR(date_creation::timestamp, 'YYYY-MM') AS mois,
+            SELECT TO_CHAR(COALESCE(date_creation, echeance)::timestamp, 'YYYY-MM') AS mois,
                    COALESCE(SUM(montant_total),0) AS charges_created,
                    COALESCE(SUM(montant_restant),0) AS remaining_amount
             FROM charges
-            WHERE date_creation::timestamp >= CURRENT_TIMESTAMP - INTERVAL '6 months'
+            WHERE COALESCE(date_creation, echeance)::timestamp >= CURRENT_TIMESTAMP - INTERVAL '6 months'
             GROUP BY mois
         ),
         payment_months AS (
@@ -905,8 +912,8 @@ def dashboard_finance():
                COALESCE(p.amount_collected,0) AS amount_collected,
                COALESCE(c.remaining_amount,0) AS remaining_amount,
                CASE WHEN COALESCE(c.charges_created,0) > 0
-                    THEN ROUND(((COALESCE(p.amount_collected,0)::numeric / c.charges_created::numeric) * 100), 1)
-                    ELSE 0 END AS collection_percentage
+                    THEN ROUND(((COALESCE(p.amount_collected,0)::numeric / c.charges_created::numeric) * 100), 1)::double precision
+                    ELSE 0::double precision END AS collection_percentage
         FROM charge_months c
         FULL OUTER JOIN payment_months p ON c.mois = p.mois
         ORDER BY mois
