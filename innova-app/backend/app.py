@@ -512,7 +512,14 @@ def creer_alerte():
     if not d:
         return jsonify({"erreur": "Donnees manquantes"}), 400
     
-    residence_id = d.get("residence_id")  # Can be None for all residences
+    residence_id = d.get("residence_id")  # None means all residences
+    if residence_id in ("", "all", "toutes", None):
+        residence_id = None
+    else:
+        try:
+            residence_id = int(residence_id)
+        except (TypeError, ValueError):
+            return jsonify({"erreur": "Residence invalide"}), 400
     
     type_emoji = {
         "info": "ℹ️",

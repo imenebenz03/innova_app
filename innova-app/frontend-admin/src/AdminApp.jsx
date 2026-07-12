@@ -333,7 +333,7 @@ function AlerteCard({ a, onDel, onDelete, onPrintNotice, onDownloadNotice }) {
         </div>
         <div style={{ display: 'flex', gap: 8, marginLeft: 12, flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
           {onPrintNotice && (
-            <button onClick={onPrintNotice} title="Générer un avis imprimable" style={{ background: '#fff', border: '1px solid var(--border)', cursor: 'pointer', fontSize: 11, padding: '5px 8px', borderRadius: 6, fontWeight: 600, color: 'var(--text)' }}>Avis</button>
+            <button onClick={onPrintNotice} title="Générer une version imprimable" style={{ background: '#fff', border: '1px solid var(--border)', cursor: 'pointer', fontSize: 11, padding: '5px 8px', borderRadius: 6, fontWeight: 600, color: 'var(--text)' }}>Imprimer</button>
           )}
           {onDownloadNotice && (
             <button onClick={onDownloadNotice} title="Exporter en PDF A4" style={{ background: '#fff', border: '1px solid var(--border)', cursor: 'pointer', fontSize: 11, padding: '5px 8px', borderRadius: 6, fontWeight: 600, color: 'var(--red)' }}>PDF A4</button>
@@ -501,15 +501,22 @@ function MonthlyFinancialSummary({ data = [] }) {
       {data.length === 0 ? (
         <div style={{ color: 'var(--muted)', fontSize: 13 }}>Aucune donnée</div>
       ) : (
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+        <div style={{ overflowX: 'auto', paddingRight: 6 }}>
+          <table style={{ width: '100%', minWidth: 720, tableLayout: 'fixed', borderCollapse: 'collapse', fontSize: 12 }}>
+            <colgroup>
+              <col style={{ width: '16%' }} />
+              <col style={{ width: '22%' }} />
+              <col style={{ width: '23%' }} />
+              <col style={{ width: '25%' }} />
+              <col style={{ width: '14%' }} />
+            </colgroup>
             <thead>
               <tr style={{ color: 'var(--muted)' }}>
                 <th style={{ textAlign: 'left', padding: '0 8px 8px 0' }}>Mois</th>
                 <th style={{ textAlign: 'right', padding: '0 8px 8px' }}>Charges créées</th>
                 <th style={{ textAlign: 'right', padding: '0 8px 8px' }}>Montant encaissé</th>
                 <th style={{ textAlign: 'right', padding: '0 8px 8px' }}>Reste à collecter</th>
-                <th style={{ textAlign: 'right', padding: '0 0 8px 8px' }}>Taux</th>
+                <th style={{ textAlign: 'right', padding: '0 12px 8px 8px' }}>Taux</th>
               </tr>
             </thead>
             <tbody>
@@ -519,7 +526,7 @@ function MonthlyFinancialSummary({ data = [] }) {
                   <td style={{ padding: '9px 8px', textAlign: 'right' }}>{fmtDA(row.charges_created || 0)}</td>
                   <td style={{ padding: '9px 8px', textAlign: 'right', color: '#1A7E53', fontWeight: 700 }}>{fmtDA(row.amount_collected || 0)}</td>
                   <td style={{ padding: '9px 8px', textAlign: 'right', color: '#C41E1E', fontWeight: 700 }}>{fmtDA(row.remaining_amount || 0)}</td>
-                  <td style={{ padding: '9px 0 9px 8px', textAlign: 'right', fontWeight: 700 }}>{row.collection_percentage || 0}%</td>
+                  <td style={{ padding: '9px 12px 9px 8px', textAlign: 'right', fontWeight: 700 }}>{row.collection_percentage || 0}%</td>
                 </tr>
               ))}
             </tbody>
@@ -883,17 +890,48 @@ function PageResidents({ toast, onOuvrirChat, onViewProfil }) {
                     <td><span style={{ background: 'var(--red-light)', color: 'var(--red)', padding: '2px 8px', borderRadius: 6, fontSize: 11, fontWeight: 600 }}>{r.residence_nom || 'INNOVIM'}</span></td>
                     <td><strong>{r.unite}</strong></td>
                     <td>
-                      <button onClick={() => toggleArchive(r)} disabled={loadingId} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 12px', borderRadius: 20, border: '1px solid transparent', cursor: loadingId ? 'wait' : 'pointer', fontSize: 12, fontWeight: 700, background: r.archived ? '#EBF3FF' : '#F8FAFC', color: r.archived ? '#1A6BB5' : '#475569', borderColor: r.archived ? '#90BBF3' : 'var(--border)', transition: 'all 0.2s' }}>
-                        <div style={{ width: 16, height: 16, borderRadius: '50%', background: r.archived ? '#1A6BB5' : '#94A3B8', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s' }}>
-                          {loadingId ? (
-                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" opacity="0.5"/></svg>
-                          ) : r.archived ? (
-                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                          ) : (
-                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                          )}
-                        </div>
-                        {loadingId ? 'Traitement' : r.archived ? 'Restaurer' : 'Archiver'}
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={!r.archived}
+                        onClick={() => toggleArchive(r)}
+                        disabled={loadingId}
+                        title={r.archived ? 'Restaurer le résident' : 'Archiver le résident'}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 9,
+                          border: 'none',
+                          background: 'transparent',
+                          cursor: loadingId ? 'wait' : 'pointer',
+                          padding: 0,
+                          color: r.archived ? '#64748B' : '#0F7A4F',
+                          fontSize: 12,
+                          fontWeight: 700,
+                        }}
+                      >
+                        <span style={{
+                          width: 42,
+                          height: 24,
+                          borderRadius: 999,
+                          background: r.archived ? '#CBD5E1' : '#10B981',
+                          position: 'relative',
+                          boxShadow: 'inset 0 0 0 1px rgba(15,23,42,0.08)',
+                          transition: 'background 0.2s',
+                        }}>
+                          <span style={{
+                            width: 20,
+                            height: 20,
+                            borderRadius: '50%',
+                            background: '#fff',
+                            position: 'absolute',
+                            top: 2,
+                            left: r.archived ? 2 : 20,
+                            boxShadow: '0 1px 4px rgba(15,23,42,0.22)',
+                            transition: 'left 0.2s',
+                          }} />
+                        </span>
+                        {loadingId ? 'Traitement' : r.archived ? 'Archivé' : 'Actif'}
                       </button>
                     </td>
                   </tr>
@@ -1539,7 +1577,7 @@ function PageAlertes({ toast }) {
   const [loading, setLoading] = useState(true)
   const [modal, setModal] = useState(false)
   const [activeTab, setActiveTab] = useState('actives')
-  const [form, setForm] = useState({ residence_id: '', type_alerte: 'info', titre: '', contenu: '', epingle: false, date_publication: '' })
+  const [form, setForm] = useState({ residence_id: 'all', type_alerte: 'info', titre: '', contenu: '', epingle: false, date_publication: '' })
   const [envoi, setEnvoi] = useState(false)
   
   const residences = [
@@ -1571,10 +1609,10 @@ function PageAlertes({ toast }) {
   const creer = async e => {
     e.preventDefault(); setEnvoi(true)
     try {
-      await post('/alertes', { ...form, epingle: form.epingle ? 1 : 0 })
+      await post('/alertes', { ...form, residence_id: form.residence_id === 'all' ? null : form.residence_id, epingle: form.epingle ? 1 : 0 })
       toast('Alerte créée avec succès !')
       setModal(false)
-      setForm({ residence_id: '', type_alerte: 'info', titre: '', contenu: '', epingle: false, date_publication: '' })
+      setForm({ residence_id: 'all', type_alerte: 'info', titre: '', contenu: '', epingle: false, date_publication: '' })
       charger()
     } catch (err) { toast(err.message) } finally { setEnvoi(false) }
   }
@@ -1690,7 +1728,7 @@ function PageAlertes({ toast }) {
           <form onSubmit={creer}>
             <div className="form-group"><label className="form-label">Résidence *</label>
               <select className="form-select" value={form.residence_id} onChange={e => setForm(f => ({ ...f, residence_id: e.target.value }))} required>
-                <option value="">Sélectionner une résidence</option>
+                <option value="all">Toutes les résidences</option>
                 {residences.map(r => <option key={r.id} value={r.id}>{r.nom}</option>)}
               </select>
             </div>
