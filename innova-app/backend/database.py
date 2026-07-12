@@ -557,7 +557,7 @@ class ResidentDB:
     def get_all():
         conn = get_connection()
         rows = conn.execute(
-            "SELECT r.id,r.nom,r.prenom,r.unite,r.etage,r.telephone,r.role,r.date_inscription,res.nom_complet as residence_nom FROM residents r LEFT JOIN residences res ON r.residence_id=res.id WHERE r.role NOT IN ('super_admin','operations','finance','admin') AND (r.archived IS NULL OR r.archived=0) ORDER BY r.unite"
+            "SELECT r.id,r.nom,r.prenom,r.unite,r.etage,r.telephone,r.role,r.archived,r.date_inscription,res.nom_complet as residence_nom FROM residents r LEFT JOIN residences res ON r.residence_id=res.id WHERE r.role NOT IN ('super_admin','operations','finance','admin') AND (r.archived IS NULL OR r.archived=0) ORDER BY r.unite"
         ).fetchall()
         conn.close()
         return rows_to_list(rows)
@@ -566,7 +566,7 @@ class ResidentDB:
     def get_archived():
         conn = get_connection()
         rows = conn.execute(
-            "SELECT r.id,r.nom,r.prenom,r.unite,r.etage,r.telephone,r.role,r.date_inscription,res.nom_complet as residence_nom FROM residents r LEFT JOIN residences res ON r.residence_id=res.id WHERE r.role NOT IN ('super_admin','operations','finance','admin') AND r.archived=1 ORDER BY r.unite"
+            "SELECT r.id,r.nom,r.prenom,r.unite,r.etage,r.telephone,r.role,r.archived,r.date_inscription,res.nom_complet as residence_nom FROM residents r LEFT JOIN residences res ON r.residence_id=res.id WHERE r.role NOT IN ('super_admin','operations','finance','admin') AND r.archived=1 ORDER BY r.unite"
         ).fetchall()
         conn.close()
         return rows_to_list(rows)
@@ -637,7 +637,7 @@ class ChargeDB:
     def get_all_with_residents():
         conn = get_connection()
         rows = conn.execute(
-            "SELECT c.*,r.nom||' '||r.prenom AS resident_nom,r.unite FROM charges c JOIN residents r ON c.resident_id=r.id WHERE (r.archived IS NULL OR r.archived=0) ORDER BY c.echeance DESC"
+            "SELECT c.*,r.nom||' '||r.prenom AS resident_nom,r.unite,r.archived AS resident_archived FROM charges c JOIN residents r ON c.resident_id=r.id WHERE (r.archived IS NULL OR r.archived=0) ORDER BY c.echeance DESC"
         ).fetchall()
         conn.close()
         return rows_to_list(rows)
@@ -738,11 +738,14 @@ class ChargeDB:
         if not designation or montant <= 0 or not echeance:
             raise ValueError("Donnees de charge invalides")
         conn = get_connection()
-        # Verify resident exists
-        res = conn.execute("SELECT id FROM residents WHERE id=?", (resident_id,)).fetchone()
+        # Verify resident exists and is still active
+        res = conn.execute("SELECT id, archived FROM residents WHERE id=?", (resident_id,)).fetchone()
         if not res:
             conn.close()
             raise ValueError("Resident introuvable")
+        if res["archived"]:
+            conn.close()
+            raise ValueError("Resident archive")
         conn.execute("INSERT INTO charges (resident_id,designation,montant_total,montant_restant,echeance) VALUES (?,?,?,?,?)",
                      (resident_id, designation, montant, montant, echeance))
         conn.commit()
@@ -957,7 +960,11 @@ class AlerteDB:
                 "SELECT a.*,r.nom||' '||r.prenom AS auteur_nom FROM alertes a JOIN residents r ON a.auteur_id=r.id WHERE a.active=1 ORDER BY a.date_creation DESC"
             ).fetchall()
         conn.close()
-        return rows_to_list(rows)
+        items = rows_to_list(rows)
+        def pinned_value(alerte):
+            return 1 if str(alerte.get("epingle", "")).lower() in ("1", "true", "t", "yes") else 0
+        items.sort(key=lambda a: (pinned_value(a), str(a.get("date_creation") or "")), reverse=True)
+        return items
     
     @staticmethod
     def get_history():
@@ -1032,13 +1039,18 @@ class AlerteDB:
         except Exception:
             conn.rollback()
             AlerteDB._try_migrate()
-            conn.execute("INSERT INTO alertes (titre,contenu,type_alerte,auteur_id,residence_id) VALUES (?,?,?,?,?)",
-                         (titre, contenu, type_alerte, auteur_id, residence_id))
+            try:
+                conn.execute("INSERT INTO alertes (titre,contenu,type_alerte,auteur_id,residence_id,epingle,date_publication) VALUES (?,?,?,?,?,?,?)",
+                             (titre, contenu, type_alerte, auteur_id, residence_id, 1 if epingle else 0, date_publication or None))
+            except Exception:
+                conn.rollback()
+                conn.execute("INSERT INTO alertes (titre,contenu,type_alerte,auteur_id,residence_id) VALUES (?,?,?,?,?)",
+                             (titre, contenu, type_alerte, auteur_id, residence_id))
         
         if residence_id:
-            residents = conn.execute("SELECT id FROM residents WHERE role='resident' AND residence_id=?", (residence_id,)).fetchall()
+            residents = conn.execute("SELECT id FROM residents WHERE role='resident' AND residence_id=? AND (archived IS NULL OR archived=0)", (residence_id,)).fetchall()
         else:
-            residents = conn.execute("SELECT id FROM residents WHERE role='resident'").fetchall()
+            residents = conn.execute("SELECT id FROM residents WHERE role='resident' AND (archived IS NULL OR archived=0)").fetchall()
         
         for r in residents:
             conn.execute("INSERT INTO notifications (resident_id,titre,contenu,type_notif) VALUES (?,?,?,?)",

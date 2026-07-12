@@ -298,7 +298,7 @@ function AlerteCard({ a, onDel, onDelete, onPrintNotice, onDownloadNotice }) {
     succes:    { l: 'Résolu',       bg: '#E6F9F0', border: '#6DD6A2', color: '#1A7E53', dot: '#10B981' },
   }
   const c = cfg[a.type_alerte] || cfg.info
-  const isPinned = a.epingle
+  const isPinned = isAlertPinned(a)
   const isScheduled = a.date_publication && new Date(a.date_publication) > new Date()
   return (
     <div style={{
@@ -450,6 +450,13 @@ function ColumnChart({ title, data = [], labelKey = 'label', valueKey = 'value',
     </div>
   )
 }
+
+const isAlertPinned = a => a?.epingle === true || Number(a?.epingle) === 1 || String(a?.epingle).toLowerCase() === 'true'
+const sortAlertes = items => [...(items || [])].sort((a, b) => {
+  const pinDiff = Number(isAlertPinned(b)) - Number(isAlertPinned(a))
+  if (pinDiff) return pinDiff
+  return new Date(b.date_creation || 0) - new Date(a.date_creation || 0)
+})
 
 function BadPayerList({ data = [], onViewProfil }) {
   return (
@@ -877,6 +884,7 @@ function PageResidents({ toast, onOuvrirChat, onViewProfil }) {
               ) : filtered.map((r, i) => {
                 const av = avatarColors[i % avatarColors.length]
                 const loadingId = toggling[r.id]
+                const isArchived = showArchives || r.archived === true || Number(r.archived) === 1
                 return (
                   <tr key={r.id}>
                     <td><div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
@@ -893,10 +901,10 @@ function PageResidents({ toast, onOuvrirChat, onViewProfil }) {
                       <button
                         type="button"
                         role="switch"
-                        aria-checked={!r.archived}
-                        onClick={() => toggleArchive(r)}
+                        aria-checked={!isArchived}
+                        onClick={() => toggleArchive({ ...r, archived: isArchived })}
                         disabled={loadingId}
-                        title={r.archived ? 'Restaurer le résident' : 'Archiver le résident'}
+                        title={isArchived ? 'Restaurer le résident' : 'Archiver le résident'}
                         style={{
                           display: 'inline-flex',
                           alignItems: 'center',
@@ -905,7 +913,7 @@ function PageResidents({ toast, onOuvrirChat, onViewProfil }) {
                           background: 'transparent',
                           cursor: loadingId ? 'wait' : 'pointer',
                           padding: 0,
-                          color: r.archived ? '#64748B' : '#0F7A4F',
+                          color: isArchived ? '#64748B' : '#0F7A4F',
                           fontSize: 12,
                           fontWeight: 700,
                         }}
@@ -914,7 +922,7 @@ function PageResidents({ toast, onOuvrirChat, onViewProfil }) {
                           width: 42,
                           height: 24,
                           borderRadius: 999,
-                          background: r.archived ? '#CBD5E1' : '#10B981',
+                          background: isArchived ? '#CBD5E1' : '#10B981',
                           position: 'relative',
                           boxShadow: 'inset 0 0 0 1px rgba(15,23,42,0.08)',
                           transition: 'background 0.2s',
@@ -926,12 +934,12 @@ function PageResidents({ toast, onOuvrirChat, onViewProfil }) {
                             background: '#fff',
                             position: 'absolute',
                             top: 2,
-                            left: r.archived ? 2 : 20,
+                            left: isArchived ? 2 : 20,
                             boxShadow: '0 1px 4px rgba(15,23,42,0.22)',
                             transition: 'left 0.2s',
                           }} />
                         </span>
-                        {loadingId ? 'Traitement' : r.archived ? 'Archivé' : 'Actif'}
+                        {loadingId ? 'Traitement' : isArchived ? 'Archivé' : 'Actif'}
                       </button>
                     </td>
                   </tr>
@@ -1074,8 +1082,10 @@ function PageCharges({ toast }) {
     downloadPdf(`recu-${fileSafe(data.reference)}.pdf`, 'Reçu de paiement', receiptBlocks(data))
   }
   
-  const chargesActives = charges.filter(c => c.statut !== 'paye')
-  const chargesHistory = charges.filter(c => c.statut === 'paye')
+  const isResidentArchived = c => c.resident_archived === true || Number(c.resident_archived) === 1
+  const chargesVisibles = charges.filter(c => !isResidentArchived(c))
+  const chargesActives = chargesVisibles.filter(c => c.statut !== 'paye')
+  const chargesHistory = chargesVisibles.filter(c => c.statut === 'paye')
   const cq = chargeSearch.toLowerCase().trim()
   const filteredActives = cq ? chargesActives.filter(c => (c.resident_nom || '').toLowerCase().includes(cq)) : chargesActives
   const filteredHistory = cq ? chargesHistory.filter(c => (c.resident_nom || '').toLowerCase().includes(cq)) : chargesHistory
@@ -1595,14 +1605,14 @@ function PageAlertes({ toast }) {
 
   useEffect(() => { 
     Promise.all([get('/alertes'), get('/alertes/historique')])
-      .then(([a, h]) => { setAlertes(a || []); setAlertesHistory(h || []) })
+      .then(([a, h]) => { setAlertes(sortAlertes(a)); setAlertesHistory(h || []) })
       .catch(e => toast(e.message))
       .finally(() => setLoading(false)) 
   }, [])
   
   const charger = () => {
     Promise.all([get('/alertes'), get('/alertes/historique')])
-      .then(([a, h]) => { setAlertes(a || []); setAlertesHistory(h || []) })
+      .then(([a, h]) => { setAlertes(sortAlertes(a)); setAlertesHistory(h || []) })
       .catch(e => toast(e.message))
   }
   
