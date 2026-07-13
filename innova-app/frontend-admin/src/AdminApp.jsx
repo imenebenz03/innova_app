@@ -261,6 +261,30 @@ const defaultPage = { super_admin: 'accueil', operations: 'accueil', finance: 'a
 
 const inits = (a, b) => (!a || !b) ? '?' : (a[0] + b[0]).toUpperCase()
 
+function Icon({ name, size = 18, stroke = 'currentColor', fill = 'none' }) {
+  const paths = {
+    residents: <><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></>,
+    charges: <><rect x="2" y="5" width="20" height="14" rx="2" /><path d="M2 10h20" /><path d="M6 15h4" /></>,
+    money: <><circle cx="12" cy="12" r="9" /><path d="M12 7v10" /><path d="M9 9.5h4.5a1.5 1.5 0 0 1 0 3H10.5a1.5 1.5 0 0 0 0 3H15" /></>,
+    requests: <><path d="M21 15a4 4 0 0 1-4 4H7l-4 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z" /><path d="M8 9h8" /><path d="M8 13h5" /></>,
+    payments: <><path d="M3 6h18v12H3z" /><path d="M7 10h.01" /><path d="M17 14h-6" /></>,
+    unpaid: <><circle cx="12" cy="12" r="9" /><path d="M8 8l8 8" /><path d="M16 8l-8 8" /></>,
+    announcement: <><path d="M3 11v2a2 2 0 0 0 2 2h2l4 4v-4h5l5 3V6l-5 3H5a2 2 0 0 0-2 2z" /></>,
+    clock: <><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></>,
+    chart: <><path d="M4 19V5" /><path d="M4 19h16" /><rect x="7" y="11" width="3" height="5" /><rect x="12" y="7" width="3" height="9" /><rect x="17" y="3" width="3" height="13" /></>,
+    log: <><path d="M8 6h13" /><path d="M8 12h13" /><path d="M8 18h13" /><path d="M3 6h.01" /><path d="M3 12h.01" /><path d="M3 18h.01" /></>,
+    sun: <><circle cx="12" cy="12" r="4" /><path d="M12 2v2" /><path d="M12 20v2" /><path d="M4.93 4.93l1.41 1.41" /><path d="M17.66 17.66l1.41 1.41" /><path d="M2 12h2" /><path d="M20 12h2" /><path d="M4.93 19.07l1.41-1.41" /><path d="M17.66 6.34l1.41-1.41" /></>,
+    moon: <path d="M21 12.8A8.5 8.5 0 1 1 11.2 3a6.5 6.5 0 0 0 9.8 9.8z" />,
+    close: <><path d="M18 6L6 18" /><path d="M6 6l12 12" /></>,
+    archive: <><path d="M21 8v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8" /><path d="M1 3h22v5H1z" /><path d="M10 12h4" /></>,
+  }
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill={fill} stroke={stroke} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      {paths[name] || paths.chart}
+    </svg>
+  )
+}
+
 function Modal({ titre, icone, onFermer, children, maxWidth = 480 }) {
   return (
     <div
@@ -271,7 +295,7 @@ function Modal({ titre, icone, onFermer, children, maxWidth = 480 }) {
       onClick={e => e.target === e.currentTarget && onFermer()}
     >
       <div style={{
-        background: '#fff', borderRadius: 20, padding: '28px 28px 24px',
+        background: 'var(--white)', borderRadius: 20, padding: '28px 28px 24px',
         width: '100%', maxWidth, boxShadow: '0 24px 64px rgba(0,0,0,0.18)',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
@@ -333,16 +357,16 @@ function AlerteCard({ a, onDel, onDelete, onPrintNotice, onDownloadNotice }) {
         </div>
         <div style={{ display: 'flex', gap: 8, marginLeft: 12, flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
           {onPrintNotice && (
-            <button onClick={onPrintNotice} title="Générer une version imprimable" style={{ background: '#fff', border: '1px solid var(--border)', cursor: 'pointer', fontSize: 11, padding: '5px 8px', borderRadius: 6, fontWeight: 600, color: 'var(--text)' }}>Imprimer</button>
+            <button onClick={onPrintNotice} title="Générer une version imprimable" style={{ background: 'var(--white)', border: '1px solid var(--border)', cursor: 'pointer', fontSize: 11, padding: '5px 8px', borderRadius: 6, fontWeight: 600, color: 'var(--text)' }}>Imprimer</button>
           )}
           {onDownloadNotice && (
-            <button onClick={onDownloadNotice} title="Exporter en PDF A4" style={{ background: '#fff', border: '1px solid var(--border)', cursor: 'pointer', fontSize: 11, padding: '5px 8px', borderRadius: 6, fontWeight: 600, color: 'var(--red)' }}>PDF A4</button>
+            <button onClick={onDownloadNotice} title="Exporter en PDF A4" style={{ background: 'var(--white)', border: '1px solid var(--border)', cursor: 'pointer', fontSize: 11, padding: '5px 8px', borderRadius: 6, fontWeight: 600, color: 'var(--red)' }}>PDF A4</button>
           )}
           {onDel && (
-            <button onClick={onDel} title="Archiver" style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, padding: 4 }}>✓</button>
+            <button onClick={onDel} title="Archiver" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, color: 'var(--muted)', display: 'inline-flex' }}><Icon name="archive" size={16} /></button>
           )}
           {onDelete && (
-            <button onClick={onDelete} title="Supprimer définitivement" style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, padding: 4, color: 'var(--red)' }}>x</button>
+            <button onClick={onDelete} title="Supprimer définitivement" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, color: 'var(--red)', display: 'inline-flex' }}><Icon name="close" size={16} /></button>
           )}
         </div>
       </div>
@@ -366,7 +390,7 @@ function ToastBar({ msg, onClose }) {
         animation: 'slideUp 0.3s cubic-bezier(0.34,1.56,0.64,1)',
       }}
     >
-      <span style={{ fontSize: 15 }}>ℹ️</span> {msg}
+      <Icon name="announcement" size={15} /> {msg}
     </div>
   )
 }
@@ -387,10 +411,13 @@ function Spinner() {
 function StatGrid({ items, columns = 4 }) {
   return (
     <div style={{ display: 'grid', gridTemplateColumns: `repeat(${columns},1fr)`, gap: 14, marginBottom: 20 }}>
-      {items.map(({ label, val, color = '#1A6BB5', bg = '#EBF3FF' }) => (
-        <div key={label} style={{ background: '#fff', borderRadius: 14, padding: '16px 18px', border: '1px solid var(--border)' }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 8 }}>{label}</div>
-          <div style={{ fontSize: 24, fontWeight: 800, color, letterSpacing: -0.4 }}>{val}</div>
+      {items.map(({ label, val, color = '#1A6BB5', bg = '#EBF3FF', icon }) => (
+        <div key={label} style={{ background: 'var(--white)', borderRadius: 14, padding: '16px 18px', border: '1px solid var(--border)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 8 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>{label}</div>
+            {icon && <div style={{ width: 32, height: 32, borderRadius: 10, background: bg, color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Icon name={icon} size={17} /></div>}
+          </div>
+          <div style={{ fontSize: 24, fontWeight: 800, color, letterSpacing: -0.4, lineHeight: 1.1 }}>{val}</div>
           <div style={{ height: 5, background: bg, borderRadius: 6, marginTop: 12 }}>
             <div style={{ height: '100%', width: '52%', background: color, borderRadius: 6, opacity: 0.75 }} />
           </div>
@@ -458,6 +485,51 @@ const sortAlertes = items => [...(items || [])].sort((a, b) => {
   return new Date(b.date_creation || 0) - new Date(a.date_creation || 0)
 })
 
+function DashboardNotifications({ data }) {
+  const items = [
+    { label: "Paiements reçus aujourd'hui", val: data?.paiements_aujourdhui || 0, color: '#1A7E53', bg: '#E6F9F0', icon: 'payments' },
+    { label: 'Résidents encore impayés', val: data?.residents_impayes || 0, color: '#C41E1E', bg: '#FFECEC', icon: 'unpaid' },
+    { label: "Nouvelles demandes aujourd'hui", val: data?.nouvelles_requetes || 0, color: '#1A6BB5', bg: '#EBF3FF', icon: 'requests' },
+    { label: "Annonces programmées aujourd'hui", val: data?.annonces_programmees || 0, color: '#7B5EA7', bg: '#F5F0FF', icon: 'announcement' },
+  ]
+  return (
+    <div style={{ marginBottom: 20 }}>
+      <div className="sec">Notifications du tableau de bord</div>
+      <StatGrid items={items} />
+    </div>
+  )
+}
+
+function ActivityLogPanel({ rows = [] }) {
+  return (
+    <div className="card" style={{ padding: 0 }}>
+      <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ width: 32, height: 32, borderRadius: 10, background: 'var(--blue-l)', color: 'var(--blue)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Icon name="log" size={17} /></div>
+        <span style={{ fontSize: 15, fontWeight: 700 }}>Journal d'activité</span>
+      </div>
+      {rows.length === 0 ? (
+        <div style={{ padding: 30, textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>Aucune activité enregistrée</div>
+      ) : (
+        <div className="table-wrap">
+          <table>
+            <thead><tr><th>Utilisateur</th><th>Action</th><th>Date</th><th>Heure</th></tr></thead>
+            <tbody>
+              {rows.slice(0, 8).map(row => (
+                <tr key={row.id}>
+                  <td style={{ fontWeight: 700 }}>{row.user_name || 'Administration'}</td>
+                  <td>{row.action}</td>
+                  <td>{row.date || fmtShort(row.date_creation)}</td>
+                  <td>{row.time || ''}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function BadPayerList({ data = [], onViewProfil }) {
   return (
     <div className="card" style={{ padding: 18 }}>
@@ -474,7 +546,7 @@ function BadPayerList({ data = [], onViewProfil }) {
               style={{
                 width: '100%',
                 border: '1px solid var(--border)',
-                background: '#fff',
+                background: 'var(--white)',
                 borderRadius: 10,
                 padding: '10px 12px',
                 display: 'grid',
@@ -549,10 +621,12 @@ function PageAccueil({ setPage }) {
   const [loading, setLoading] = useState(true)
   const [alertes, setAlertes] = useState([])
   const [requetes, setRequetes] = useState([])
+  const [dashboardNotifs, setDashboardNotifs] = useState(null)
+  const [activityLog, setActivityLog] = useState([])
   
   useEffect(() => {
-    Promise.all([get('/residents'), get('/charges/toutes'), get('/alertes'), get('/requetes')])
-      .then(([res, ch, al, rq]) => {
+    Promise.all([get('/residents'), get('/charges/toutes'), get('/alertes'), get('/requetes'), get('/dashboard/notifications'), get('/activity-log')])
+      .then(([res, ch, al, rq, dn, log]) => {
         const ea = ch?.filter?.(c => c.statut !== 'paye' && c.statut !== 'payé') || []
         setStats({
           residents: res?.length || 0,
@@ -565,6 +639,8 @@ function PageAccueil({ setPage }) {
         const sortedRequetes = [...(rq || [])].filter(r => r.statut === 'en_attente').sort((a, b) => new Date(b.date_creation) - new Date(a.date_creation)).slice(0, 3)
         setAlertes(sortedAlertes)
         setRequetes(sortedRequetes)
+        setDashboardNotifs(dn || null)
+        setActivityLog(log || [])
       }).catch(() => { }).finally(() => setLoading(false))
   }, [])
   
@@ -579,25 +655,13 @@ function PageAccueil({ setPage }) {
   return (
     <div>
       <div className="page-title">Tableau de bord</div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 16, marginBottom: 24 }}>
-        {[
-          { label: 'Résidents', val: stats.residents, color: '#1A6BB5', bg: '#EBF3FF', icon: 'RS' },
-          { label: 'Charges en attente', val: stats.charges_en_attente, color: '#B07D00', bg: '#FFF8E6', icon: 'CH' },
-          { label: 'Total dû', val: fmtDA(stats.total_du), color: '#C41E1E', bg: '#FFECEC', icon: 'DA' },
-          { label: 'Requêtes à traiter', val: stats.requetes, color: '#7B5EA7', bg: '#F5F0FF', icon: 'RQ' },
-        ].map(({ label, val, color, bg, icon }) => (
-          <div style={{
-            background: '#fff', borderRadius: 16, padding: '20px 22px',
-            border: '1px solid var(--border)', boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-              <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)', letterSpacing: 0.3, textTransform: 'uppercase' }}>{label}</span>
-              <div style={{ width: 34, height: 34, borderRadius: 10, background: bg, color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800 }}>{icon}</div>
-            </div>
-            <div style={{ fontSize: 26, fontWeight: 800, color, letterSpacing: -0.5 }}>{val}</div>
-          </div>
-        ))}
-      </div>
+      <DashboardNotifications data={dashboardNotifs} />
+      <StatGrid items={[
+        { label: 'Résidents', val: stats.residents, color: '#1A6BB5', bg: '#EBF3FF', icon: 'residents' },
+        { label: 'Charges en attente', val: stats.charges_en_attente, color: '#B07D00', bg: '#FFF8E6', icon: 'charges' },
+        { label: 'Total dû', val: fmtDA(stats.total_du), color: '#C41E1E', bg: '#FFECEC', icon: 'money' },
+        { label: 'Requêtes à traiter', val: stats.requetes, color: '#7B5EA7', bg: '#F5F0FF', icon: 'requests' },
+      ]} />
       
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
         <div className="card" style={{ padding: 0 }}>
@@ -633,7 +697,7 @@ function PageAccueil({ setPage }) {
           ) : (
             <div style={{ padding: 8 }}>
               {requetes.map(q => (
-                <div key={q.id} style={{ padding: 12, background: '#F8FAFC', borderRadius: 10, marginBottom: 8 }}>
+                <div key={q.id} style={{ padding: 12, background: 'var(--bg)', borderRadius: 10, marginBottom: 8 }}>
                   <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>{q.sujet}</div>
                   <div style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.5, marginBottom: 6 }}>{q.contenu}</div>
                   <div style={{ fontSize: 11, color: 'var(--hint)' }}>{q.resident_nom} · Unité {q.unite} · {fmtShort(q.date_creation)}</div>
@@ -643,6 +707,7 @@ function PageAccueil({ setPage }) {
           )}
         </div>
       </div>
+      <ActivityLogPanel rows={activityLog} />
     </div>
   )
 }
@@ -651,15 +716,17 @@ function PageOperations({ setPage }) {
   const [data, setData] = useState(null)
   const [alertes, setAlertes] = useState([])
   const [requetes, setRequetes] = useState([])
+  const [dashboardNotifs, setDashboardNotifs] = useState(null)
   const [loading, setLoading] = useState(true)
   useEffect(() => {
-    Promise.all([get('/dashboard/operations'), get('/alertes'), get('/requetes')])
-      .then(([d, al, rq]) => {
+    Promise.all([get('/dashboard/operations'), get('/alertes'), get('/requetes'), get('/dashboard/notifications')])
+      .then(([d, al, rq, dn]) => {
         setData(d)
         const sortedAlertes = [...(al || [])].sort((a, b) => new Date(b.date_creation) - new Date(a.date_creation)).slice(0, 3)
         const sortedRequetes = [...(rq || [])].filter(r => r.statut === 'en_attente').sort((a, b) => new Date(b.date_creation) - new Date(a.date_creation)).slice(0, 3)
         setAlertes(sortedAlertes)
         setRequetes(sortedRequetes)
+        setDashboardNotifs(dn || null)
       })
       .catch(() => {})
       .finally(() => setLoading(false))
@@ -675,11 +742,12 @@ function PageOperations({ setPage }) {
   return (
     <div>
       <div className="page-title">Tableau de bord Gestion</div>
+      <DashboardNotifications data={dashboardNotifs} />
       <StatGrid items={[
-        { label: 'Demandes en attente', val: data.requetes_ouvertes || 0, color: '#C41E1E', bg: '#FFECEC' },
-        { label: 'Demandes en cours', val: data.requetes_en_cours || 0, color: '#1A6BB5', bg: '#EBF3FF' },
-        { label: 'Demandes terminées', val: data.requetes_resolues || 0, color: '#1A7E53', bg: '#E6F9F0' },
-        { label: 'Annonces actives', val: data.alertes_actives || 0, color: '#7B5EA7', bg: '#F5F0FF' },
+        { label: 'Demandes en attente', val: data.requetes_ouvertes || 0, color: '#C41E1E', bg: '#FFECEC', icon: 'requests' },
+        { label: 'Demandes en cours', val: data.requetes_en_cours || 0, color: '#1A6BB5', bg: '#EBF3FF', icon: 'clock' },
+        { label: 'Demandes terminées', val: data.requetes_resolues || 0, color: '#1A7E53', bg: '#E6F9F0', icon: 'log' },
+        { label: 'Annonces actives', val: data.alertes_actives || 0, color: '#7B5EA7', bg: '#F5F0FF', icon: 'announcement' },
       ]} />
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18, marginBottom: 18 }}>
         <BarChart title="Demandes par statut" data={[
@@ -730,7 +798,7 @@ function PageOperations({ setPage }) {
           ) : (
             <div style={{ padding: 8 }}>
               {requetes.map(q => (
-                <div key={q.id} style={{ padding: 12, background: '#F8FAFC', borderRadius: 10, marginBottom: 8 }}>
+                <div key={q.id} style={{ padding: 12, background: 'var(--bg)', borderRadius: 10, marginBottom: 8 }}>
                   <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>{q.sujet}</div>
                   <div style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.5, marginBottom: 6 }}>{q.contenu}</div>
                   <div style={{ fontSize: 11, color: 'var(--hint)' }}>{q.resident_nom} · Unité {q.unite} · {fmtShort(q.date_creation)}</div>
@@ -746,19 +814,26 @@ function PageOperations({ setPage }) {
 
 function PageFinance({ onViewProfil }) {
   const [data, setData] = useState(null)
+  const [dashboardNotifs, setDashboardNotifs] = useState(null)
   const [loading, setLoading] = useState(true)
-  useEffect(() => { get('/dashboard/finance').then(setData).catch(() => {}).finally(() => setLoading(false)) }, [])
+  useEffect(() => {
+    Promise.all([get('/dashboard/finance'), get('/dashboard/notifications')])
+      .then(([d, dn]) => { setData(d); setDashboardNotifs(dn || null) })
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [])
   if (loading) return <Spinner />
   if (!data) return <div className="card" style={{ padding: 40, textAlign: 'center', color: 'var(--muted)' }}>Erreur de chargement</div>
   const topCompound = (data.compound_fees || [])[0]
   return (
     <div>
       <div className="page-title">Tableau de bord Finance</div>
+      <DashboardNotifications data={dashboardNotifs} />
       <StatGrid items={[
-        { label: 'Total des charges', val: fmtDA(data.total_facture || 0), color: '#1A6BB5', bg: '#EBF3FF' },
-        { label: 'Montant encaissé', val: fmtDA(data.total_collecte || 0), color: '#1A7E53', bg: '#E6F9F0' },
-        { label: 'Reste à collecter', val: fmtDA(data.impayes_total || 0), color: '#C41E1E', bg: '#FFECEC' },
-        { label: 'Taux de collecte', val: `${data.taux_collecte || 0}%`, color: '#B07D00', bg: '#FFF8E6' },
+        { label: 'Total des charges', val: fmtDA(data.total_facture || 0), color: '#1A6BB5', bg: '#EBF3FF', icon: 'charges' },
+        { label: 'Montant encaissé', val: fmtDA(data.total_collecte || 0), color: '#1A7E53', bg: '#E6F9F0', icon: 'payments' },
+        { label: 'Reste à collecter', val: fmtDA(data.impayes_total || 0), color: '#C41E1E', bg: '#FFECEC', icon: 'unpaid' },
+        { label: 'Taux de collecte', val: `${data.taux_collecte || 0}%`, color: '#B07D00', bg: '#FFF8E6', icon: 'chart' },
       ]} />
       {topCompound && (
         <div className="card" style={{ padding: 18, marginBottom: 18, borderLeft: '4px solid #7B5EA7' }}>
@@ -931,7 +1006,7 @@ function PageResidents({ toast, onOuvrirChat, onViewProfil }) {
                             width: 20,
                             height: 20,
                             borderRadius: '50%',
-                            background: '#fff',
+                            background: 'var(--white)',
                             position: 'absolute',
                             top: 2,
                             left: isArchived ? 2 : 20,
@@ -1236,7 +1311,7 @@ function PageCharges({ toast }) {
                   <label key={method.value} style={{
                     display: 'flex', alignItems: 'center', gap: 10, padding: '11px 12px',
                     borderRadius: 10, border: `1.5px solid ${paiementForm.methode === method.value ? '#10B981' : 'var(--border)'}`,
-                    background: paiementForm.methode === method.value ? '#E6F9F0' : '#fff',
+                    background: paiementForm.methode === method.value ? '#E6F9F0' : 'var(--white)',
                     cursor: 'pointer', fontSize: 13, fontWeight: 600, color: 'var(--text)'
                   }}>
                     <input
@@ -1276,7 +1351,7 @@ function PageCharges({ toast }) {
               ['Date', fmtFull(receipt.date)],
               ['Méthode', paymentMethodLabel(receipt.methode)],
             ].map(([label, value]) => (
-              <div key={label} style={{ padding: '12px 14px', borderRadius: 10, background: '#fff', border: '1px solid var(--border)' }}>
+              <div key={label} style={{ padding: '12px 14px', borderRadius: 10, background: 'var(--white)', border: '1px solid var(--border)' }}>
                 <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 4 }}>{label}</div>
                 <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{value}</div>
               </div>
@@ -1425,7 +1500,7 @@ function PageMessagerie({ resident, toast, residentInitial, onCloseInitial }) {
       <div className="page-sub">Conversations privées avec les résidents · actualisation automatique</div>
       <div style={{
         display: 'flex', height: 'calc(100vh - 210px)', minHeight: 500,
-        background: '#fff', borderRadius: 20, border: '1px solid var(--border)',
+        background: 'var(--white)', borderRadius: 20, border: '1px solid var(--border)',
         overflow: 'hidden', boxShadow: '0 4px 24px rgba(0,0,0,0.06)',
       }}>
         <div style={{ width: 320, borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', flexShrink: 0, background: '#FAFAFA' }}>
@@ -1517,7 +1592,7 @@ function PageMessagerie({ resident, toast, residentInitial, onCloseInitial }) {
             </div>
           ) : (
             <>
-              <div style={{ padding: '16px 24px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 14, background: '#fff', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
+              <div style={{ padding: '16px 24px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 14, background: 'var(--white)', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
                 <div style={{ width: 44, height: 44, borderRadius: 14, background: 'linear-gradient(135deg, #DC2626 0%, #991B1B 100%)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, boxShadow: '0 2px 8px rgba(220,38,38,0.3)' }}>
                   {inits(actif.prenom, actif.nom)}
                 </div>
@@ -1536,21 +1611,21 @@ function PageMessagerie({ resident, toast, residentInitial, onCloseInitial }) {
                   const estMoi = m.role === 'admin'
                   return (
                     <div key={m.id} style={{ display: 'flex', gap: 10, alignItems: 'flex-end', flexDirection: estMoi ? 'row-reverse' : 'row' }}>
-                      <div style={{ width: 32, height: 32, borderRadius: 10, background: estMoi ? '#DC2626' : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, color: estMoi ? '#fff' : '#64748B', flexShrink: 0, boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+                      <div style={{ width: 32, height: 32, borderRadius: 10, background: estMoi ? '#DC2626' : 'var(--white)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, color: estMoi ? '#fff' : 'var(--muted)', flexShrink: 0, boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
                         {estMoi ? 'AD' : inits(actif.prenom, actif.nom)}
                       </div>
                       <div style={{ maxWidth: '70%' }}>
-                        <div style={{ padding: '12px 16px', borderRadius: 18, fontSize: 14, lineHeight: 1.55, background: estMoi ? '#DC2626' : '#fff', color: estMoi ? '#fff' : 'var(--text)', borderBottomRightRadius: estMoi ? 4 : 18, borderBottomLeftRadius: estMoi ? 18 : 4, boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
+                        <div style={{ padding: '12px 16px', borderRadius: 18, fontSize: 14, lineHeight: 1.55, background: estMoi ? '#DC2626' : 'var(--white)', color: estMoi ? '#fff' : 'var(--text)', borderBottomRightRadius: estMoi ? 4 : 18, borderBottomLeftRadius: estMoi ? 18 : 4, boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
                           {m.contenu}
                         </div>
-                        <div style={{ fontSize: 11, color: '#94A3B8', marginTop: 4, textAlign: estMoi ? 'right' : 'left' }}>{fmtFull(m.date_envoi)} · {estMoi ? '✓✓' : 'Lu'}</div>
+                        <div style={{ fontSize: 11, color: '#94A3B8', marginTop: 4, textAlign: estMoi ? 'right' : 'left' }}>{fmtFull(m.date_envoi)} · {estMoi ? 'Envoyé' : 'Lu'}</div>
                       </div>
                     </div>
                   )
                 })}
               </div>
 
-              <div style={{ padding: '16px 20px', borderTop: '1px solid var(--border)', display: 'flex', gap: 12, alignItems: 'flex-end', background: '#fff' }}>
+              <div style={{ padding: '16px 20px', borderTop: '1px solid var(--border)', display: 'flex', gap: 12, alignItems: 'flex-end', background: 'var(--white)' }}>
                 {actif.archived ? (
                   <div style={{ flex: 1, borderRadius: 16, background: '#F1F5F9', padding: '12px 16px', fontSize: 13, color: '#94A3B8', textAlign: 'center' }}>
                     Résident archivé. Envoi de messages désactivé.
@@ -1892,12 +1967,12 @@ function PageRequetes({ toast }) {
         requetesHistory.length === 0 ? <div style={{ padding: 40, textAlign: 'center', color: 'var(--muted)' }}>Aucun historique</div> : (
           <div style={{ display: 'grid', gap: 12, opacity: 0.8 }}>
             {requetesHistory.map(q => (
-              <div key={q.id} style={{ background: '#F8FAFC', borderRadius: 12, padding: 16, border: '1px solid var(--border)' }}>
+              <div key={q.id} style={{ background: 'var(--bg)', borderRadius: 12, padding: 16, border: '1px solid var(--border)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text)', marginBottom: 4 }}>{q.sujet}</div>
                     <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 8 }}>{q.contenu}</div>
-                    <div style={{ fontSize: 11, color: '#10B981', marginBottom: 4 }}>✓ Répondu: {q.reponse}</div>
+                    <div style={{ fontSize: 11, color: '#10B981', marginBottom: 4 }}>Répondu: {q.reponse}</div>
                     <div style={{ fontSize: 11, color: 'var(--hint)' }}>{q.resident_nom} · Unité {q.unite} · {fmtShort(q.date_creation)}</div>
                   </div>
                   <button 
@@ -1945,6 +2020,7 @@ export default function AdminApp() {
   const [profilResidentId, setProfilResidentId] = useState(null)
   const [unreadCount, setUnreadCount] = useState(0)
   const [alertCount, setAlertCount] = useState(0)
+  const [theme, setTheme] = useState(() => localStorage.getItem('innova-theme') || 'light')
   const handleViewProfil = rid => { setProfilResidentId(rid); setPage('profil') }
 
   const roleCreds = {
@@ -1954,6 +2030,11 @@ export default function AdminApp() {
   }
 
   const toast = msg => setToastMsg(msg)
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme)
+    localStorage.setItem('innova-theme', theme)
+  }, [theme])
 
   const ouvrirChatResident = r => {
     setChatResident(r)
@@ -2090,10 +2171,10 @@ export default function AdminApp() {
 
         <div className="sec">Finance</div>
         <StatGrid items={[
-          { label: 'Total des charges', val: fmtDA(data.total_facture || 0), color: '#1A6BB5', bg: '#EBF3FF' },
-          { label: 'Montant encaissé', val: fmtDA(data.total_percu || 0), color: '#1A7E53', bg: '#E6F9F0' },
-          { label: 'Reste à collecter', val: fmtDA(data.remaining || 0), color: '#C41E1E', bg: '#FFECEC' },
-          { label: 'Taux de collecte', val: `${data.taux_collecte || 0}%`, color: '#B07D00', bg: '#FFF8E6' },
+          { label: 'Total des charges', val: fmtDA(data.total_facture || 0), color: '#1A6BB5', bg: '#EBF3FF', icon: 'charges' },
+          { label: 'Montant encaissé', val: fmtDA(data.total_percu || 0), color: '#1A7E53', bg: '#E6F9F0', icon: 'payments' },
+          { label: 'Reste à collecter', val: fmtDA(data.remaining || 0), color: '#C41E1E', bg: '#FFECEC', icon: 'unpaid' },
+          { label: 'Taux de collecte', val: `${data.taux_collecte || 0}%`, color: '#B07D00', bg: '#FFF8E6', icon: 'chart' },
         ]} />
         {topCompound && (
           <div className="card" style={{ padding: 18, marginBottom: 18, borderLeft: '4px solid #7B5EA7' }}>
@@ -2116,10 +2197,10 @@ export default function AdminApp() {
 
         <div className="sec">Résidents</div>
         <StatGrid items={[
-          { label: 'Total résidents', val: data.total_residents || 0, color: '#1A6BB5', bg: '#EBF3FF' },
-          { label: 'Appartements occupés', val: data.occupied_apartments || 0, color: '#1A7E53', bg: '#E6F9F0' },
-          { label: 'Appartements vacants', val: data.vacant_apartments || 0, color: '#C41E1E', bg: '#FFECEC' },
-          { label: 'Total appartements', val: data.total_apartments || 0, color: '#7B5EA7', bg: '#F5F0FF' },
+          { label: 'Total résidents', val: data.total_residents || 0, color: '#1A6BB5', bg: '#EBF3FF', icon: 'residents' },
+          { label: 'Appartements occupés', val: data.occupied_apartments || 0, color: '#1A7E53', bg: '#E6F9F0', icon: 'residents' },
+          { label: 'Appartements vacants', val: data.vacant_apartments || 0, color: '#C41E1E', bg: '#FFECEC', icon: 'unpaid' },
+          { label: 'Total appartements', val: data.total_apartments || 0, color: '#7B5EA7', bg: '#F5F0FF', icon: 'chart' },
         ]} />
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18, marginBottom: 24 }}>
           <BarChart title="Appartements occupés par résidence" data={data.occupied_by_compound || []} labelKey="nom_complet" valueKey="count" color="#1A7E53" />
@@ -2128,10 +2209,10 @@ export default function AdminApp() {
 
         <div className="sec">Gestion</div>
         <StatGrid items={[
-          { label: 'Demandes en attente', val: data.requetes_ouvertes || 0, color: '#C41E1E', bg: '#FFECEC' },
-          { label: 'Demandes en cours', val: data.requetes_en_cours || 0, color: '#1A6BB5', bg: '#EBF3FF' },
-          { label: 'Demandes terminées', val: data.requetes_resolues || 0, color: '#1A7E53', bg: '#E6F9F0' },
-          { label: 'Annonces actives', val: data.total_alertes || 0, color: '#7B5EA7', bg: '#F5F0FF' },
+          { label: 'Demandes en attente', val: data.requetes_ouvertes || 0, color: '#C41E1E', bg: '#FFECEC', icon: 'requests' },
+          { label: 'Demandes en cours', val: data.requetes_en_cours || 0, color: '#1A6BB5', bg: '#EBF3FF', icon: 'clock' },
+          { label: 'Demandes terminées', val: data.requetes_resolues || 0, color: '#1A7E53', bg: '#E6F9F0', icon: 'log' },
+          { label: 'Annonces actives', val: data.total_alertes || 0, color: '#7B5EA7', bg: '#F5F0FF', icon: 'announcement' },
         ]} />
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18 }}>
           <BarChart title="Demandes par statut" data={[
@@ -2363,7 +2444,7 @@ export default function AdminApp() {
                             </div>
                             <div style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.6 }}>{r.contenu}</div>
                             {r.reponse && (
-                              <div style={{ marginTop: 8, padding: '8px 12px', background: '#fff', borderRadius: 8, borderLeft: '3px solid var(--green)', fontSize: 12, color: 'var(--text)' }}>
+                              <div style={{ marginTop: 8, padding: '8px 12px', background: 'var(--white)', borderRadius: 8, borderLeft: '3px solid var(--green)', fontSize: 12, color: 'var(--text)' }}>
                                 <span style={{ fontWeight: 600, color: 'var(--green)' }}>Réponse: </span>{r.reponse}
                               </div>
                             )}
@@ -2462,6 +2543,15 @@ export default function AdminApp() {
         <div className="topbar">
           <div className="topbar-title">{pageTitles[currentPage]}</div>
           <div className="topbar-right">
+            <button
+              type="button"
+              className="theme-toggle"
+              onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')}
+              title={theme === 'dark' ? 'Mode clair' : 'Mode sombre'}
+            >
+              <Icon name={theme === 'dark' ? 'sun' : 'moon'} size={16} />
+              <span>{theme === 'dark' ? 'Clair' : 'Sombre'}</span>
+            </button>
             <span className="topbar-badge">Administration · {role === 'super_admin' ? 'Super Admin' : role === 'operations' ? 'Gestion' : role === 'finance' ? 'Finance' : role}</span>
             <div className="topbar-av">{inits(resident.prenom, resident.nom)}</div>
           </div>

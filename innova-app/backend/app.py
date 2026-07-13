@@ -12,7 +12,7 @@ from database import (
     init_db,
     ResidentDB, ChargeDB, MessageDB,
     AlerteDB, RequeteDB, NotificationDB, DeviceTokenDB,
-    ResidenceDB, get_connection, row_to_dict, rows_to_list
+    ActivityLogDB, ResidenceDB, get_connection, row_to_dict, rows_to_list
 )
 
 app = Flask(__name__)
@@ -101,6 +101,28 @@ def role_requis(*roles):
         return decorated
     return decorator
 
+def _actor_label():
+    rid = session.get("resident_id")
+    if not rid:
+        return "Systeme"
+    try:
+        conn = get_connection()
+        row = conn.execute("SELECT prenom, nom, role FROM residents WHERE id=?", (rid,)).fetchone()
+        conn.close()
+        if row:
+            user = row_to_dict(row)
+            name = f"{user.get('prenom', '')} {user.get('nom', '')}".strip()
+            return name or user.get("role") or "Administration"
+    except Exception:
+        pass
+    return "Administration"
+
+def record_activity(action):
+    try:
+        ActivityLogDB.create(session.get("resident_id"), _actor_label(), action)
+    except Exception as exc:
+        print(f"[activity_log] ERROR: {exc}")
+
 
 # -- AUTH ----------------------------------------------------------------------
 
@@ -182,6 +204,8 @@ def creer_resident():
         d.get("mot_de_passe", ""), d.get("unite", ""), d.get("etage", 0),
         d.get("telephone", "")
     )
+    if ok:
+        record_activity(f"Resident cree : {d.get('prenom', '').strip()} {d.get('nom', '').strip()}".strip())
     return jsonify({"succes": ok, "message": msg}), (201 if ok else 400)
 
 @app.route("/api/residents/archives", methods=["GET"])
@@ -264,6 +288,7 @@ def creer_charge():
         if montant <= 0:
             return jsonify({"erreur": "Montant invalide"}), 400
         ChargeDB.create(int(d["resident_id"]), d["designation"], montant, d["echeance"])
+        record_activity(f"Charge creee : {d['designation']} ({montant:,.0f} DA)")
         return jsonify({"succes": True}), 201
     except (ValueError, KeyError) as e:
         return jsonify({"erreur": str(e)}), 400
@@ -295,6 +320,8 @@ def set_montant_mensuel():
 def generer_charges_mensuelles():
     from database import SettingsDB
     result = SettingsDB.generer_charges_mensuelles()
+    if result.get("succes"):
+        record_activity(f"Charges mensuelles creees : {result.get('count', 0)} residents")
     return jsonify(result)
 
 @app.route("/api/charges/<int:charge_id>/verifier", methods=["GET"])
@@ -337,6 +364,7 @@ def payer_admin(charge_id):
         if methode not in PAYMENT_METHODS:
             return jsonify({"erreur": "Methode de paiement invalide"}), 400
         ref, restant, payment_id = ChargeDB.pay_admin(charge_id, montant, methode)
+        record_activity(f"Paiement enregistre : {montant:,.0f} DA")
         return jsonify({"succes": True, "reference": ref, "montant_restant": restant, "paiement_id": payment_id, "methode": methode})
     except ValueError as e:
         return jsonify({"erreur": str(e)}), 400
@@ -521,13 +549,6 @@ def creer_alerte():
         except (TypeError, ValueError):
             return jsonify({"erreur": "Residence invalide"}), 400
     
-    type_emoji = {
-        "info": "ℹ️",
-        "attention": "⚠️",
-        "danger": "🚨",
-        "succes": "✅"
-    }.get(d.get("type_alerte", "info"), "ℹ️")
-    
     try:
         AlerteDB.create(d["titre"], d["contenu"], d["type_alerte"], session["resident_id"], residence_id, d.get("epingle", 0), d.get("date_publication"))
         
@@ -535,12 +556,13 @@ def creer_alerte():
         for token_info in all_tokens:
             send_push_notification(
                 token_info['expo_token'],
-                f"{type_emoji} {d['titre']}",
+                d["titre"],
                 d["contenu"][:100],
                 {"type": "alerte", "type_alerte": d.get("type_alerte")}
             )
             NotificationDB.create(token_info['resident_id'], d["titre"], d["contenu"][:80], d.get("type_alerte", "info"))
         
+        record_activity(f"Annonce envoyee : {d['titre']}")
         return jsonify({"succes": True}), 201
     except (ValueError, KeyError) as e:
         return jsonify({"erreur": str(e)}), 400
@@ -597,6 +619,7 @@ def repondre_requete(requete_id):
         return jsonify({"erreur": "Donnees manquantes"}), 400
     try:
         RequeteDB.reply(requete_id, d["reponse"])
+        record_activity(f"Requete cloturee : #{requete_id}")
         return jsonify({"succes": True})
     except (ValueError, KeyError) as e:
         return jsonify({"erreur": str(e)}), 400
@@ -629,6 +652,52 @@ def register_device():
         return jsonify({"erreur": "Token Expo requerido"}), 400
     DeviceTokenDB.save_or_update(session["resident_id"], d["expo_token"], d.get("type_app", "mobile"))
     return jsonify({"succes": True})
+
+
+@app.route("/api/dashboard/notifications", methods=["GET"])
+@staff_requis
+def dashboard_notifications():
+    conn = get_connection()
+    paiements_aujourdhui = conn.execute("""
+        SELECT COUNT(*) FROM paiements
+        WHERE date_paiement::timestamp::date = CURRENT_DATE
+    """).fetchone()[0]
+    residents_impayes = conn.execute("""
+        SELECT COUNT(DISTINCT r.id)
+        FROM charges c JOIN residents r ON c.resident_id=r.id
+        WHERE c.statut != 'paye'
+          AND c.montant_restant > 0
+          AND (r.archived IS NULL OR r.archived=0)
+    """).fetchone()[0]
+    nouvelles_requetes = conn.execute("""
+        SELECT COUNT(*) FROM requetes
+        WHERE date_creation::timestamp::date = CURRENT_DATE
+    """).fetchone()[0]
+    annonces_programmees = conn.execute("""
+        SELECT COUNT(*) FROM alertes
+        WHERE active=1
+          AND date_publication IS NOT NULL
+          AND NULLIF(date_publication, '')::timestamp::date = CURRENT_DATE
+    """).fetchone()[0]
+    conn.close()
+    return jsonify({
+        "paiements_aujourdhui": paiements_aujourdhui,
+        "residents_impayes": residents_impayes,
+        "nouvelles_requetes": nouvelles_requetes,
+        "annonces_programmees": annonces_programmees,
+    })
+
+
+@app.route("/api/activity-log", methods=["GET"])
+@role_requis("super_admin")
+def activity_log():
+    limit = min(request.args.get("limit", default=30, type=int), 100)
+    rows = ActivityLogDB.recent(limit)
+    for row in rows:
+        date_value = str(row.get("date_creation") or "")
+        row["date"] = date_value[:10]
+        row["time"] = date_value[11:16]
+    return jsonify(rows)
 
 
 def send_push_notification(expo_token, title, body, data=None):

@@ -337,6 +337,15 @@ def init_db():
             FOREIGN KEY (resident_id) REFERENCES residents(id) ON DELETE CASCADE
         );
 
+        CREATE TABLE IF NOT EXISTS activity_logs (
+            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id         INTEGER,
+            user_name       TEXT    NOT NULL,
+            action          TEXT    NOT NULL,
+            date_creation   TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES residents(id) ON DELETE SET NULL
+        );
+
         CREATE TABLE IF NOT EXISTS device_tokens (
             id              INTEGER PRIMARY KEY AUTOINCREMENT,
             resident_id     INTEGER NOT NULL,
@@ -1172,6 +1181,50 @@ class NotificationDB:
         )
         conn.commit()
         conn.close()
+
+
+class ActivityLogDB:
+    @staticmethod
+    def ensure_table(conn=None):
+        close_conn = False
+        if conn is None:
+            conn = get_connection()
+            close_conn = True
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS activity_logs (
+                id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id         INTEGER,
+                user_name       TEXT    NOT NULL,
+                action          TEXT    NOT NULL,
+                date_creation   TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES residents(id) ON DELETE SET NULL
+            )
+        """)
+        conn.commit()
+        if close_conn:
+            conn.close()
+
+    @staticmethod
+    def create(user_id, user_name, action):
+        conn = get_connection()
+        ActivityLogDB.ensure_table(conn)
+        conn.execute(
+            "INSERT INTO activity_logs (user_id, user_name, action) VALUES (?, ?, ?)",
+            (user_id, user_name or "Administration", action)
+        )
+        conn.commit()
+        conn.close()
+
+    @staticmethod
+    def recent(limit=30):
+        conn = get_connection()
+        ActivityLogDB.ensure_table(conn)
+        rows = conn.execute(
+            "SELECT id, user_id, user_name, action, date_creation FROM activity_logs ORDER BY date_creation DESC LIMIT ?",
+            (limit,)
+        ).fetchall()
+        conn.close()
+        return rows_to_list(rows)
 
 
 class DeviceTokenDB:
