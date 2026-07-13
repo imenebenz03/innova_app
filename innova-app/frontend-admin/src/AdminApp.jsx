@@ -203,26 +203,14 @@ async function exportPaymentsExcel(toast) {
 
 function LogoBatiments({ size = 24, stroke = '#fff' }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 64 64" fill="none">
-      <rect x="2" y="28" width="12" height="32" rx="1" fill={stroke} opacity="0.9" />
-      <rect x="16" y="20" width="12" height="40" rx="1" fill={stroke} opacity="0.8" />
-      <rect x="30" y="12" width="12" height="48" rx="1" fill={stroke} opacity="0.7" />
-      <rect x="44" y="24" width="12" height="36" rx="1" fill={stroke} opacity="0.85" />
-      <rect x="58" y="30" width="4" height="30" rx="1" fill={stroke} opacity="0.6" />
+    <svg width={size} height={size} viewBox="0 0 64 64" fill="none" aria-hidden="true">
+      <path d="M10 52V24L32 10l22 14v28" stroke={stroke} strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M20 52V29h9c5.2 0 8.5 2.7 8.5 6.9 0 2.6-1.2 4.7-3.5 5.8 3 .9 4.8 3.1 4.8 6.1 0 2.9-1.4 5.2-3.9 6.5" stroke={stroke} strokeWidth="3.4" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M26 37h5.4c1.8 0 2.9-.9 2.9-2.4s-1.1-2.4-2.9-2.4H26v4.8z" fill={stroke} />
+      <path d="M26 48h6.5c2 0 3.2-1 3.2-2.8 0-1.7-1.2-2.7-3.2-2.7H26V48z" fill={stroke} />
+      <path d="M43 52V29h6.5c5.5 0 9 3.2 9 8s-3.5 8-9 8H48v7" stroke={stroke} strokeWidth="3.4" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   )
-}
-
-function IconShield({ size = 24 }) {
-  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="#C41E1E" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2l7 4v5c0 5-3.5 9.7-7 11-3.5-1.3-7-6-7-11V6l7-4z"/><path d="M9 12l2 2 4-4" stroke="#fff" strokeWidth="2.2"/></svg>
-}
-
-function IconCoins({ size = 24 }) {
-  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="#B07D00" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="8"/><path d="M12 8v8"/><path d="M9 10h4.5a1.5 1.5 0 0 1 0 3H11"/><path d="M9 13.5h4.5a1.5 1.5 0 0 1 0 3H9"/></svg>
-}
-
-function IconMessageSquare({ size = 24 }) {
-  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="#7B5EA7" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3h18v14H6l-3 3V3z"/><path d="M8 9h8"/><path d="M8 13h6"/></svg>
 }
 
 const fmtDate = str => {
@@ -273,6 +261,9 @@ function Icon({ name, size = 18, stroke = 'currentColor', fill = 'none' }) {
     clock: <><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></>,
     chart: <><path d="M4 19V5" /><path d="M4 19h16" /><rect x="7" y="11" width="3" height="5" /><rect x="12" y="7" width="3" height="9" /><rect x="17" y="3" width="3" height="13" /></>,
     log: <><path d="M8 6h13" /><path d="M8 12h13" /><path d="M8 18h13" /><path d="M3 6h.01" /><path d="M3 12h.01" /><path d="M3 18h.01" /></>,
+    admin: <><path d="M12 3l7 4v5c0 4.8-3 8.5-7 9-4-0.5-7-4.2-7-9V7l7-4z" /><path d="M9 12l2 2 4-4" /></>,
+    finance: <><rect x="3" y="5" width="18" height="14" rx="2" /><path d="M7 9h10" /><path d="M7 13h4" /><path d="M15 13h2" /></>,
+    operations: <><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l2.8-2.8a6 6 0 0 1-7.9 7.9l-5.7 5.7a2.1 2.1 0 0 1-3-3l5.7-5.7a6 6 0 0 1 7.9-7.9l-2.8 2.8z" /></>,
     sun: <><circle cx="12" cy="12" r="4" /><path d="M12 2v2" /><path d="M12 20v2" /><path d="M4.93 4.93l1.41 1.41" /><path d="M17.66 17.66l1.41 1.41" /><path d="M2 12h2" /><path d="M20 12h2" /><path d="M4.93 19.07l1.41-1.41" /><path d="M17.66 6.34l1.41-1.41" /></>,
     moon: <path d="M21 12.8A8.5 8.5 0 1 1 11.2 3a6.5 6.5 0 0 0 9.8 9.8z" />,
     close: <><path d="M18 6L6 18" /><path d="M6 6l12 12" /></>,
@@ -485,17 +476,22 @@ const sortAlertes = items => [...(items || [])].sort((a, b) => {
   return new Date(b.date_creation || 0) - new Date(a.date_creation || 0)
 })
 
-function DashboardNotifications({ data }) {
-  const items = [
+function DashboardNotifications({ data, scope = 'admin' }) {
+  const allItems = [
     { label: "Paiements reçus aujourd'hui", val: data?.paiements_aujourdhui || 0, color: '#1A7E53', bg: '#E6F9F0', icon: 'payments' },
     { label: 'Résidents encore impayés', val: data?.residents_impayes || 0, color: '#C41E1E', bg: '#FFECEC', icon: 'unpaid' },
     { label: "Nouvelles demandes aujourd'hui", val: data?.nouvelles_requetes || 0, color: '#1A6BB5', bg: '#EBF3FF', icon: 'requests' },
     { label: "Annonces programmées aujourd'hui", val: data?.annonces_programmees || 0, color: '#7B5EA7', bg: '#F5F0FF', icon: 'announcement' },
   ]
+  const items = scope === 'finance'
+    ? allItems.slice(0, 2)
+    : scope === 'operations'
+      ? allItems.slice(2)
+      : allItems
   return (
     <div style={{ marginBottom: 20 }}>
       <div className="sec">Notifications du tableau de bord</div>
-      <StatGrid items={items} />
+      <StatGrid items={items} columns={items.length} />
     </div>
   )
 }
@@ -742,7 +738,7 @@ function PageOperations({ setPage }) {
   return (
     <div>
       <div className="page-title">Tableau de bord Gestion</div>
-      <DashboardNotifications data={dashboardNotifs} />
+      <DashboardNotifications data={dashboardNotifs} scope="operations" />
       <StatGrid items={[
         { label: 'Demandes en attente', val: data.requetes_ouvertes || 0, color: '#C41E1E', bg: '#FFECEC', icon: 'requests' },
         { label: 'Demandes en cours', val: data.requetes_en_cours || 0, color: '#1A6BB5', bg: '#EBF3FF', icon: 'clock' },
@@ -828,7 +824,7 @@ function PageFinance({ onViewProfil }) {
   return (
     <div>
       <div className="page-title">Tableau de bord Finance</div>
-      <DashboardNotifications data={dashboardNotifs} />
+      <DashboardNotifications data={dashboardNotifs} scope="finance" />
       <StatGrid items={[
         { label: 'Total des charges', val: fmtDA(data.total_facture || 0), color: '#1A6BB5', bg: '#EBF3FF', icon: 'charges' },
         { label: 'Montant encaissé', val: fmtDA(data.total_collecte || 0), color: '#1A7E53', bg: '#E6F9F0', icon: 'payments' },
@@ -848,8 +844,10 @@ function PageFinance({ onViewProfil }) {
         <ColumnChart title="Montant encaissé par mois" data={data.mensuel || []} labelKey="mois" valueKey="total" color="#1A6BB5" formatter={fmtDA} />
         <BarChart title="Revenus par résidence" data={data.compound_fees || []} labelKey="nom_complet" valueKey="total" color="#7B5EA7" formatter={fmtDA} />
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: 18, marginTop: 18 }}>
+      <div style={{ marginTop: 18 }}>
         <MonthlyFinancialSummary data={data.monthly_financial_summary || []} />
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18, marginTop: 18, alignItems: 'start' }}>
         <div className="card" style={{ padding: 16 }}>
           <h3 style={{ margin: '0 0 12px', fontSize: 14, fontWeight: 600 }}>Derniers paiements</h3>
           {(data.derniers_paiements || []).length === 0 ? (
@@ -868,10 +866,10 @@ function PageFinance({ onViewProfil }) {
             </table>
           )}
         </div>
-      </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: 18, marginTop: 18 }}>
-        <BadPayerList data={data.bad_payers || data.impayes || []} onViewProfil={onViewProfil} />
         <BarChart title="Soldes impayés les plus élevés" data={data.bad_payers || data.impayes || []} labelKey="nom" valueKey="total" color="#C41E1E" formatter={fmtDA} />
+      </div>
+      <div style={{ marginTop: 18 }}>
+        <BadPayerList data={data.bad_payers || data.impayes || []} onViewProfil={onViewProfil} />
       </div>
     </div>
   )
@@ -2128,8 +2126,8 @@ export default function AdminApp() {
                 textAlign: 'center', transition: 'all 0.15s',
               }}
             >
-              <div style={{ marginBottom: 4 }}>
-                {key === 'super_admin' ? <IconShield /> : key === 'finance' ? <IconCoins /> : <IconMessageSquare />}
+              <div style={{ marginBottom: 6, color: key === 'super_admin' ? '#C41E1E' : key === 'finance' ? '#B07D00' : '#7B5EA7', display: 'flex', justifyContent: 'center' }}>
+                <Icon name={key === 'super_admin' ? 'admin' : key === 'finance' ? 'finance' : 'operations'} size={25} />
               </div>
               <div style={{ fontSize: 12, fontWeight: 700, color: selectedRole === key ? '#C41E1E' : '#374151' }}>{cred.label}</div>
               <div style={{ fontSize: 10, color: '#9CA3AF', marginTop: 2, lineHeight: 1.3 }}>{cred.desc}</div>
