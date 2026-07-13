@@ -203,12 +203,11 @@ async function exportPaymentsExcel(toast) {
 
 function LogoBatiments({ size = 24, stroke = '#fff' }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 64 64" fill="none" aria-hidden="true">
-      <path d="M10 52V24L32 10l22 14v28" stroke={stroke} strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M20 52V29h9c5.2 0 8.5 2.7 8.5 6.9 0 2.6-1.2 4.7-3.5 5.8 3 .9 4.8 3.1 4.8 6.1 0 2.9-1.4 5.2-3.9 6.5" stroke={stroke} strokeWidth="3.4" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M26 37h5.4c1.8 0 2.9-.9 2.9-2.4s-1.1-2.4-2.9-2.4H26v4.8z" fill={stroke} />
-      <path d="M26 48h6.5c2 0 3.2-1 3.2-2.8 0-1.7-1.2-2.7-3.2-2.7H26V48z" fill={stroke} />
-      <path d="M43 52V29h6.5c5.5 0 9 3.2 9 8s-3.5 8-9 8H48v7" stroke={stroke} strokeWidth="3.4" strokeLinecap="round" strokeLinejoin="round" />
+    <svg width={size} height={size} viewBox="0 0 64 82" fill="none" aria-hidden="true">
+      <path d="M12 80V43L31 28V80" stroke={stroke} strokeWidth="5.5" strokeLinejoin="miter" strokeLinecap="butt" />
+      <path d="M31 80H49V7L25 25V38" stroke={stroke} strokeWidth="5.5" strokeLinejoin="miter" strokeLinecap="butt" />
+      <path d="M35 80V30L43 36V80" stroke={stroke} strokeWidth="5.5" strokeLinejoin="miter" strokeLinecap="butt" />
+      <path d="M53 80V39L61 45V80" stroke={stroke} strokeWidth="5.5" strokeLinejoin="miter" strokeLinecap="butt" />
     </svg>
   )
 }
